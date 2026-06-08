@@ -1,126 +1,131 @@
 # CLAUDE.md
 
-Guía para trabajar en este repo. Léela antes de hacer cambios.
+Guide for working in this repo. Read it before making changes.
 
-## Qué es
+## Repository
 
-Un panel local (web) para levantar y monitorear todos los microservicios de FastBank
-desde un solo lugar, en vez de abrir una terminal por servicio. Corre en
-`http://localhost:9999`.
+- GitHub: https://github.com/meruw/deps-launcher
+- Remote: `origin` → `main`
+- Day-to-day flow: `git add -A` → `git commit -m "..."` → `git push`
 
-**Principio clave: cero dependencias.** Todo usa módulos built-in de Node
-(`http`, `child_process`, `net`, `fs`, `path`). No agregues paquetes npm sin una
-razón fuerte — la gracia de esta herramienta es que se clona y corre con `node launcher.js`.
+## What it is
 
-## Cómo correrlo
+A local web panel to start and monitor all FastBank microservices from one place,
+instead of opening a terminal per service. Runs at `http://localhost:9999`.
+
+**Key principle: zero dependencies.** Everything uses Node built-in modules
+(`http`, `child_process`, `net`, `fs`, `path`). Don't add npm packages without a
+strong reason — the whole point of this tool is that you clone it and run `node launcher.js`.
+
+## How to run it
 
 ```sh
-node launcher.js      # o: npm start
+node launcher.js      # or: npm start
 ```
 
-Abre el navegador solo. `Ctrl+C` apaga el launcher y mata todos los servicios hijos.
+Opens the browser automatically. `Ctrl+C` shuts down the launcher and kills all child services.
 
-Requiere Node >= 16. Pensado para **Windows** (usa `taskkill` y `start`).
+Requires Node >= 16. Built for **Windows** (uses `taskkill` and `start`).
 
-## Arquitectura
+## Architecture
 
-Entry point delgado + módulos con una sola responsabilidad. El flujo:
+Thin entry point + single-responsibility modules. The flow:
 
 ```
-services.json   ── configuración declarativa de los servicios
+services.json   ── declarative configuration of the services
       │
-launcher.js     ── cablea todo y arranca el servidor
-      ├── src/config.js          carga + valida services.json, sustituye ${ROOT}
-      ├── src/logger.js          logs por servicio: ring buffer + archivo en logs/
+launcher.js     ── wires everything together and starts the server
+      ├── src/config.js          loads + validates services.json, substitutes ${ROOT}
+      ├── src/logger.js          per-service logs: ring buffer + file in logs/
       ├── src/health.js          healthchecks tcp / http / process
-      ├── src/util.js            topoSort (orden por dependencias) + waitFor
+      ├── src/util.js            topoSort (dependency ordering) + waitFor
       ├── src/process-manager.js spawn/stop/restart, crashes, auto-restart, deps
-      └── src/server.js          servidor HTTP + API REST
-index.html      ── la UI (vanilla JS, sin build, hace polling a /api/status cada 2s)
+      └── src/server.js          HTTP server + REST API
+index.html      ── the UI (vanilla JS, no build, polls /api/status every 2s)
 ```
 
-### Responsabilidades
+### Responsibilities
 
-- **config.js** — única fuente de verdad sobre qué servicios existen. Valida ids/puertos
-  duplicados, dependencias inexistentes, tipos de health. Si algo está mal, el launcher
-  no arranca y explica por qué.
-- **process-manager.js** — el cerebro. Mantiene `procs`, `statuses` e `intent` por servicio.
-- **server.js** — solo enruta HTTP → llamadas al process-manager. Sin lógica de negocio.
-- **logger.js / health.js / util.js** — utilidades sin estado de dominio.
+- **config.js** — single source of truth about which services exist. Validates duplicate
+  ids/ports, non-existent dependencies, health types. If something is wrong, the launcher
+  refuses to start and explains why.
+- **process-manager.js** — the brain. Keeps `procs`, `statuses` and `intent` per service.
+- **server.js** — only routes HTTP → calls into the process-manager. No business logic.
+- **logger.js / health.js / util.js** — stateless domain utilities.
 
-## Modelo de estado (process-manager)
+## State model (process-manager)
 
-Cada servicio tiene un `status` y un `intent` (lo que el usuario quiere) por separado.
-Esa separación es lo que permite distinguir un **crash** de un **stop normal**.
+Each service has a `status` and an `intent` (what the user wants) kept separate.
+That separation is what lets us tell a **crash** apart from a normal **stop**.
 
-| status     | significado                                          |
+| status     | meaning                                              |
 |------------|------------------------------------------------------|
-| `stopped`  | no corre, nadie lo pidió                             |
-| `starting` | lo arrancamos, todavía no pasa el healthcheck        |
-| `running`  | healthcheck OK (o proceso vivo si `health=process`)  |
-| `stopping` | pedimos pararlo, esperando que muera                 |
-| `crashed`  | murió solo con `intent=up` (crash inesperado)        |
+| `stopped`  | not running, nobody asked for it                     |
+| `starting` | we started it, healthcheck not passing yet           |
+| `running`  | healthcheck OK (or process alive if `health=process`)|
+| `stopping` | we asked to stop it, waiting for it to die           |
+| `crashed`  | it died on its own with `intent=up` (unexpected)     |
 
-Los eventos del proceso (`close`) son la fuente de verdad para `stopped`/`crashed`.
-`refresh()` (cada 2s) solo promueve `starting → running` y detecta servicios externos.
+Process events (`close`) are the source of truth for `stopped`/`crashed`.
+`refresh()` (every 2s) only promotes `starting → running` and detects external services.
 
-## Cómo agregar / cambiar un servicio
+## How to add / change a service
 
-**No se toca código.** Editá `services.json` y reiniciá el launcher. Campos:
+**No code changes.** Edit `services.json` and restart the launcher. Fields:
 
-| campo         | req. | descripción                                                        |
+| field         | req. | description                                                        |
 |---------------|------|--------------------------------------------------------------------|
-| `id`          | sí   | identificador único (usado en la API y los archivos de log)        |
-| `cmd`         | sí   | ejecutable a correr                                                |
-| `name`/`desc` | no   | texto para la UI                                                   |
-| `port`        | no*  | puerto del servicio (requerido si `health.type` = `tcp`)           |
-| `color`       | no   | color del acento en la card                                        |
-| `cwd`         | no   | directorio de trabajo; admite `${ROOT}`                            |
-| `args`        | no   | array de argumentos; cada uno admite `${ROOT}`                     |
+| `id`          | yes  | unique identifier (used in the API and log file names)             |
+| `cmd`         | yes  | executable to run                                                  |
+| `name`/`desc` | no   | text for the UI                                                    |
+| `port`        | no*  | service port (required if `health.type` = `tcp`)                   |
+| `color`       | no   | accent color on the card                                           |
+| `cwd`         | no   | working directory; supports `${ROOT}`                              |
+| `args`        | no   | array of arguments; each one supports `${ROOT}`                    |
 | `health`      | no   | `{ "type": "tcp" \| "http" \| "process", "path": "/", "url": "" }` |
-| `dependsOn`   | no   | array de ids que deben estar `running` antes de arrancar este      |
-| `depTimeout`  | no   | ms a esperar por las dependencias (default 60000)                  |
-| `autoRestart` | no   | valor **inicial** del toggle; reintenta al crashear (backoff, hasta `maxRestarts`). Se puede prender/apagar en vivo desde la UI; el cambio en runtime no se persiste al JSON |
-| `maxRestarts` | no   | tope de auto-restarts (default 3)                                  |
+| `dependsOn`   | no   | array of ids that must be `running` before this one starts         |
+| `depTimeout`  | no   | ms to wait for dependencies (default 60000)                        |
+| `autoRestart` | no   | **initial** value of the toggle; retries on crash (backoff, up to `maxRestarts`). Can be turned on/off live from the UI; the runtime change is not persisted to the JSON |
+| `maxRestarts` | no   | cap on auto-restarts (default 3)                                   |
 
-`${ROOT}` se sustituye por el campo `root` de `services.json` (o la env var `FASTBANK_ROOT`).
+`${ROOT}` is substituted with the `root` field in `services.json` (or the `FASTBANK_ROOT` env var).
 
-### Tipos de healthcheck
+### Healthcheck types
 
-- **`tcp`** (default): el puerto acepta conexiones. Rápido, sirve para la mayoría.
-- **`http`**: un GET a `url` (o `http://localhost:{port}{path}`) devuelve status < 500.
-  Útil cuando el puerto abre antes de que el servicio esté realmente listo
-  (ej. un `/actuator/health` de Spring Boot).
-- **`process`**: no se chequea por red; se considera `running` mientras el proceso viva.
-  Para servicios sin endpoint trivial (ej. Azurite).
+- **`tcp`** (default): the port accepts connections. Fast, works for most cases.
+- **`http`**: a GET to `url` (or `http://localhost:{port}{path}`) returns status < 500.
+  Useful when the port opens before the service is actually ready
+  (e.g. a Spring Boot `/actuator/health`).
+- **`process`**: not checked over the network; considered `running` while the process is alive.
+  For services without a trivial endpoint (e.g. Azurite).
 
-## API HTTP
+## HTTP API
 
-| método | ruta                  | acción                                  |
-|--------|-----------------------|-----------------------------------------|
-| GET    | `/`                   | sirve la UI                             |
-| GET    | `/api/status`         | snapshot de todos los servicios + logs  |
-| GET    | `/api/logs/:id`       | últimas 200 líneas en memoria de un id  |
-| POST   | `/api/start/:id`      | arranca un servicio                     |
-| POST   | `/api/stop/:id`       | para un servicio                        |
-| POST   | `/api/restart/:id`    | reinicia un servicio                    |
-| POST   | `/api/autorestart/:id`| togglea el auto-restart (devuelve el nuevo valor) |
-| POST   | `/api/start-all`      | arranca todo respetando dependencias    |
-| POST   | `/api/stop-all`       | para todo en orden inverso              |
+| method | route                  | action                                   |
+|--------|------------------------|------------------------------------------|
+| GET    | `/`                    | serves the UI                            |
+| GET    | `/api/status`          | snapshot of all services + logs          |
+| GET    | `/api/logs/:id`        | last 200 in-memory lines for an id       |
+| POST   | `/api/start/:id`       | start a service                          |
+| POST   | `/api/stop/:id`        | stop a service                           |
+| POST   | `/api/restart/:id`     | restart a service                        |
+| POST   | `/api/autorestart/:id` | toggle auto-restart (returns new value)  |
+| POST   | `/api/start-all`       | start everything respecting dependencies |
+| POST   | `/api/stop-all`        | stop everything in reverse order         |
 
-## Convenciones
+## Conventions
 
-- Comentarios y textos de UI en español, como el resto del repo.
-- Indentación de 2 espacios, sin punto y coma al final (estilo del código existente).
-- Mensajes de log con prefijos: `→` iniciando, `←` deteniendo, `✖` crash, `↻` restart, `⚠` warning.
-- Específico de Windows: `taskkill /T /F` mata el árbol de procesos (el `shell: true` crea
-  un cmd/powershell intermedio, así que matar solo el pid directo dejaría huérfanos).
+- Comments and UI text in English.
+- 2-space indentation, no trailing semicolons (matches the existing code style).
+- Log messages with prefixes: `→` starting, `←` stopping, `✖` crash, `↻` restart, `⚠` warning.
+- Windows-specific: `taskkill /T /F` kills the process tree (the `shell: true` creates an
+  intermediate cmd/powershell, so killing only the direct pid would leave orphans).
 
 ## Gotchas
 
-- `spawn(..., { shell: true })` es necesario para resolver `.cmd`/`.bat` y comandos del PATH
-  en Windows, pero crea un proceso shell intermedio — por eso el stop usa `taskkill /T`.
-- Los logs en memoria se limitan a 200 líneas por servicio; el historial completo queda en
-  `logs/<id>.log` (se appendea entre sesiones).
-- El healthcheck `tcp` da `running` aunque el servicio lo haya levantado otra terminal
-  (no nuestro proceso). Es a propósito: refleja la realidad del puerto.
+- `spawn(..., { shell: true })` is needed to resolve `.cmd`/`.bat` and PATH commands on
+  Windows, but it creates an intermediate shell process — that's why stop uses `taskkill /T`.
+- In-memory logs are capped at 200 lines per service; the full history lives in
+  `logs/<id>.log` (appended across sessions).
+- The `tcp` healthcheck reports `running` even if another terminal brought the service up
+  (not our process). That's intentional: it reflects the reality of the port.

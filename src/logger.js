@@ -1,12 +1,12 @@
-// Logs por servicio. Doble destino:
-//   - buffer en memoria (ring buffer) → lo que ve la UI, rápido
-//   - archivo en logs/<id>.log         → persiste entre reinicios del launcher
+// Per-service logs. Two destinations:
+//   - in-memory buffer (ring buffer) → what the UI shows, fast
+//   - file at logs/<id>.log           → persists across launcher restarts
 
 const fs = require('fs')
 const path = require('path')
 
 const LOG_DIR = path.join(__dirname, '..', 'logs')
-const MAX_LINES = 200 // líneas que se mantienen en memoria por servicio
+const MAX_LINES = 200 // lines kept in memory per service
 
 const buffers = {} // id → string[]
 const streams = {} // id → WriteStream
@@ -16,7 +16,7 @@ function init(ids) {
   ids.forEach(id => {
     buffers[id] = []
     streams[id] = fs.createWriteStream(path.join(LOG_DIR, `${id}.log`), { flags: 'a' })
-    streams[id].write(`\n===== sesión ${new Date().toISOString()} =====\n`)
+    streams[id].write(`\n===== session ${new Date().toISOString()} =====\n`)
   })
 }
 
@@ -25,8 +25,10 @@ function add(id, text) {
   const lines = text.toString().split('\n').filter(l => l.trim())
   lines.forEach(line => {
     const stamped = `[${new Date().toLocaleTimeString()}] ${line}`
+    // Memory: ring buffer — keep only the last MAX_LINES so the UI stays light.
     buffers[id].push(stamped)
     if (buffers[id].length > MAX_LINES) buffers[id].shift()
+    // Disk: append every line, no trimming — the full history is in logs/<id>.log.
     if (streams[id]) streams[id].write(stamped + '\n')
   })
 }

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>FastBank Launcher</title>
@@ -268,7 +268,7 @@
     <div class="brand-icon">⚡</div>
     <div>
       <div class="brand-title">FastBank Launcher</div>
-      <div class="brand-sub">Entorno local de desarrollo</div>
+      <div class="brand-sub">Local dev environment</div>
     </div>
   </div>
   <div class="header-actions">
@@ -278,15 +278,15 @@
 </header>
 
 <div class="summary">
-  <span><span class="dot-sm" style="background:#22C55E"></span> <span id="count-running">0</span> corriendo</span>
-  <span><span class="dot-sm" style="background:#F59E0B"></span> <span id="count-starting">0</span> iniciando</span>
-  <span><span class="dot-sm" style="background:#484F58"></span> <span id="count-stopped">0</span> detenidos</span>
-  <span><span class="dot-sm" style="background:#F85149"></span> <span id="count-crashed">0</span> caídos</span>
+  <span><span class="dot-sm" style="background:#22C55E"></span> <span id="count-running">0</span> running</span>
+  <span><span class="dot-sm" style="background:#F59E0B"></span> <span id="count-starting">0</span> starting</span>
+  <span><span class="dot-sm" style="background:#484F58"></span> <span id="count-stopped">0</span> stopped</span>
+  <span><span class="dot-sm" style="background:#F85149"></span> <span id="count-crashed">0</span> crashed</span>
 </div>
 
 <div class="grid" id="grid"></div>
 
-<footer>FastBank · Entorno local · actualiza cada 2s</footer>
+<footer>FastBank · Local environment · refreshes every 2s</footer>
 
 <script>
   let openLogs = new Set()
@@ -319,7 +319,7 @@
         card.innerHTML = buildCard(svc)
         grid.appendChild(card)
 
-        // Toggle log
+        // Toggle logs
         card.querySelector('.log-toggle').addEventListener('click', () => {
           const box = card.querySelector('.log-box')
           const toggle = card.querySelector('.log-toggle')
@@ -339,7 +339,7 @@
     const logOpen   = openLogs.has(svc.id) ? 'visible' : ''
     const toggleOpen = openLogs.has(svc.id) ? 'open' : ''
     const deps = (svc.deps && svc.deps.length)
-      ? `<span class="deps-badge" title="Depende de">⛓ ${svc.deps.join(', ')}</span>` : ''
+      ? `<span class="deps-badge" title="Depends on">⛓ ${svc.deps.join(', ')}</span>` : ''
 
     return `
       <div class="card-header" style="--accent: ${svc.color}">
@@ -365,10 +365,10 @@
         </div>
       </div>
       <div class="card-meta">
-        <span>Auto-restart al caer</span>
+        <span>Auto-restart on crash</span>
         <div class="toggle ${svc.autoRestart ? 'on' : ''}"
              id="auto-${svc.id}"
-             title="Reiniciar automáticamente si el servicio crashea"
+             title="Automatically restart the service if it crashes"
              onclick="toggleAuto('${svc.id}')"></div>
       </div>
       <div class="log-toggle ${toggleOpen}">
@@ -386,7 +386,7 @@
     const led = card.querySelector(`#led-${svc.id}`)
     if (led) led.className = `status-led led-${svc.status}`
 
-    // Botones
+    // Buttons
     const active = svc.status === 'running' || svc.status === 'starting'
     const btnStart   = card.querySelector(`#btn-start-${svc.id}`)
     const btnStop    = card.querySelector(`#btn-stop-${svc.id}`)
@@ -395,11 +395,11 @@
     if (btnStop)    btnStop.classList.toggle('btn-disabled', !active)
     if (btnRestart) btnRestart.classList.toggle('btn-disabled', !active)
 
-    // Toggle auto-restart (no pisar si el usuario lo está por tocar; refleja el server)
+    // Auto-restart toggle (reflects the server state)
     const auto = card.querySelector(`#auto-${svc.id}`)
     if (auto) auto.classList.toggle('on', !!svc.autoRestart)
 
-    // Logs (solo si está abierto)
+    // Logs (only if open)
     if (openLogs.has(svc.id)) {
       const logBox = card.querySelector(`#log-${svc.id}`)
       if (logBox) {
@@ -430,7 +430,7 @@
   }
 
   async function toggleAuto(id) {
-    // Optimista: reflejar el cambio al toque, el server confirma en el próximo poll.
+    // Optimistic: reflect the change immediately, the server confirms on the next poll.
     document.getElementById(`auto-${id}`)?.classList.toggle('on')
     await fetch(`/api/autorestart/${id}`, { method: 'POST' })
   }
@@ -445,7 +445,7 @@
     fetchStatus()
   }
 
-  // Polling cada 2s
+  // Poll every 2s
   fetchStatus()
   setInterval(fetchStatus, 2000)
 </script>

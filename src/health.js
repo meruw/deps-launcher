@@ -1,8 +1,8 @@
-// Healthchecks. Tres estrategias:
-//   - tcp:     el puerto acepta conexiones (rápido, sirve para casi todo)
-//   - http:    un GET devuelve status < 500 (más preciso para web/APIs)
-//   - process: no se puede chequear por red; el caller usa la presencia del proceso
-//              (ej. Azurite, que no expone un endpoint trivial)
+// Healthchecks. Three strategies:
+//   - tcp:     the port accepts connections (fast, works for almost everything)
+//   - http:    a GET returns status < 500 (more precise for web/APIs)
+//   - process: can't be checked over the network; the caller uses process presence
+//              (e.g. Azurite, which doesn't expose a trivial endpoint)
 
 const net = require('net')
 const http = require('http')
@@ -22,7 +22,7 @@ function checkTcp(port, host = 'localhost', timeout = 400) {
 function checkHttp(url, timeout = 1500) {
   return new Promise(resolve => {
     const req = http.get(url, res => {
-      res.resume() // drenar para liberar el socket
+      res.resume() // drain to free the socket
       resolve(res.statusCode < 500)
     })
     req.setTimeout(timeout, () => { req.destroy(); resolve(false) })
@@ -30,8 +30,8 @@ function checkHttp(url, timeout = 1500) {
   })
 }
 
-// Devuelve true/false según el healthcheck, o null si es de tipo "process"
-// (el caller decide en base a si el proceso sigue vivo).
+// Returns true/false based on the healthcheck, or null if the type is "process"
+// (the caller decides based on whether the process is still alive).
 async function check(svc) {
   const h = svc.health || { type: 'tcp' }
   if (h.type === 'process') return null

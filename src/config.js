@@ -1,6 +1,6 @@
-// Carga y valida services.json.
-// La config es declarativa: agregar/quitar un servicio = editar el JSON,
-// sin tocar el código del launcher.
+// Loads and validates services.json.
+// The config is declarative: adding/removing a service = editing the JSON,
+// without touching the launcher code.
 
 const fs = require('fs')
 const path = require('path')
@@ -14,44 +14,44 @@ function load() {
   try {
     raw = fs.readFileSync(CONFIG_PATH, 'utf8')
   } catch (e) {
-    throw new Error(`No se pudo leer services.json (${CONFIG_PATH}): ${e.message}`)
+    throw new Error(`Could not read services.json (${CONFIG_PATH}): ${e.message}`)
   }
 
   let cfg
   try {
     cfg = JSON.parse(raw)
   } catch (e) {
-    throw new Error(`services.json no es JSON válido: ${e.message}`)
+    throw new Error(`services.json is not valid JSON: ${e.message}`)
   }
 
-  // ${ROOT} se sustituye por config.root, o por la env var FASTBANK_ROOT.
+  // ${ROOT} is substituted with config.root, or the FASTBANK_ROOT env var.
   const root = cfg.root || process.env.FASTBANK_ROOT || process.cwd()
   const subst = s => (typeof s === 'string' ? s.replace(/\$\{ROOT\}/g, root) : s)
 
   if (!Array.isArray(cfg.services) || cfg.services.length === 0) {
-    throw new Error('services.json debe tener un array "services" con al menos un servicio')
+    throw new Error('services.json must have a "services" array with at least one service')
   }
 
   const seenIds = new Set()
   const seenPorts = new Map()
 
   const services = cfg.services.map((s, i) => {
-    if (!s.id) throw new Error(`Servicio #${i}: falta "id"`)
-    if (!s.cmd) throw new Error(`Servicio "${s.id}": falta "cmd"`)
-    if (seenIds.has(s.id)) throw new Error(`Servicio "${s.id}": id duplicado`)
+    if (!s.id) throw new Error(`Service #${i}: missing "id"`)
+    if (!s.cmd) throw new Error(`Service "${s.id}": missing "cmd"`)
+    if (seenIds.has(s.id)) throw new Error(`Service "${s.id}": duplicate id`)
     seenIds.add(s.id)
 
     const health = s.health || { type: 'tcp' }
     if (!VALID_HEALTH_TYPES.includes(health.type)) {
-      throw new Error(`Servicio "${s.id}": health.type "${health.type}" inválido (usar: ${VALID_HEALTH_TYPES.join(', ')})`)
+      throw new Error(`Service "${s.id}": invalid health.type "${health.type}" (use: ${VALID_HEALTH_TYPES.join(', ')})`)
     }
     if (health.type === 'tcp' && !s.port) {
-      throw new Error(`Servicio "${s.id}": health "tcp" requiere "port"`)
+      throw new Error(`Service "${s.id}": health "tcp" requires "port"`)
     }
 
     if (s.port) {
       if (seenPorts.has(s.port)) {
-        throw new Error(`Servicio "${s.id}": puerto ${s.port} ya usado por "${seenPorts.get(s.port)}"`)
+        throw new Error(`Service "${s.id}": port ${s.port} already used by "${seenPorts.get(s.port)}"`)
       }
       seenPorts.set(s.port, s.id)
     }
@@ -73,11 +73,11 @@ function load() {
     }
   })
 
-  // Validar que las dependencias existan.
+  // Validate that dependencies exist.
   for (const svc of services) {
     for (const dep of svc.dependsOn) {
       if (!seenIds.has(dep)) {
-        throw new Error(`Servicio "${svc.id}": depende de "${dep}" que no existe`)
+        throw new Error(`Service "${svc.id}": depends on "${dep}" which does not exist`)
       }
     }
   }

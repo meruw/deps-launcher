@@ -1,7 +1,7 @@
-// Helpers sin estado: orden topológico por dependencias y espera con polling.
+// Stateless helpers: topological ordering by dependencies and polling wait.
 
-// Devuelve los servicios ordenados de forma que cada uno aparezca después
-// de sus dependencias. Si hay un ciclo, lo ignora (no cuelga).
+// Returns the services ordered so that each one appears after its dependencies.
+// If there is a cycle, it is ignored (won't hang).
 function topoSort(services) {
   const byId = Object.fromEntries(services.map(s => [s.id, s]))
   const visited = new Set()
@@ -23,7 +23,7 @@ function topoSort(services) {
   return result
 }
 
-// Resuelve true cuando predicate() es verdadero, o false al expirar el timeout.
+// Resolves true when predicate() is truthy, or false when the timeout expires.
 function waitFor(predicate, timeout = 30000, interval = 300) {
   return new Promise(resolve => {
     const start = Date.now()

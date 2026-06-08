@@ -1,29 +1,30 @@
 # FastBank Launcher
 
-Panel local para levantar todos los microservicios de FastBank desde un solo lugar.
+A local panel to start all microservices from a single place.
 
-![estado](https://img.shields.io/badge/deps-cero-brightgreen)
+![deps](https://img.shields.io/badge/deps-zero-brightgreen)
 
-## Uso
+## Usage
 
 ```sh
-node launcher.js     # o: npm start
+node launcher.js     # or: npm start
 ```
 
-Abre `http://localhost:9999` automáticamente. Desde ahí:
+Opens `http://localhost:9999` automatically. From there:
 
-- **Start All** arranca todo respetando el orden de dependencias.
-- Cada servicio tiene **Start / Restart (↻) / Stop** individuales.
-- LED de estado en vivo: corriendo, iniciando, detenido, **caído**.
-- Logs por servicio (colapsables), también guardados en `logs/<id>.log`.
+- **Start All** starts everything respecting the dependency order.
+- Each service has individual **Start / Restart (↻) / Stop**.
+- Per-service **Auto-restart on crash** toggle.
+- Live status LED: running, starting, stopped, **crashed**.
+- Per-service logs (collapsible), also saved to `logs/<id>.log`.
 
-`Ctrl+C` en la terminal apaga el launcher y mata todos los servicios.
+`Ctrl+C` in the terminal shuts down the launcher and kills all services.
 
-## Agregar un servicio
+## Add a service
 
-Edita [`services.json`](services.json) y reinicia. No hay que tocar código.
-Ver [CLAUDE.md](CLAUDE.md) para el detalle de cada campo y la arquitectura.
+Edit [`services.json`](services.json) and restart. No code changes needed.
+See [CLAUDE.md](CLAUDE.md) for the detail of each field and the architecture.
 
-## Requisitos
+## Requirements
 
-Node >= 16. Pensado para Windows. Cero dependencias npm.
+Node >= 16. Built for Windows. Zero npm dependencies.

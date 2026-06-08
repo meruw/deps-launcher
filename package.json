@@ -1,7 +1,7 @@
 {
   "name": "fastbank-launcher",
   "version": "1.0.0",
-  "description": "Panel local para levantar todos los microservicios de FastBank desde un solo lugar",
+  "description": "Local panel to start all FastBank microservices from a single place",
   "main": "launcher.js",
   "scripts": {
     "start": "node launcher.js"
