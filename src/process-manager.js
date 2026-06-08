@@ -24,6 +24,19 @@ function shellQuote(s) {
   return /\s/.test(s) && !s.startsWith('"') ? `"${s}"` : s
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+// Run a command and resolve true if it exits 0 (used for readiness checks like `docker info`).
+function runCheck(cmd) {
+  return new Promise(resolve => exec(cmd, { windowsHide: true }, err => resolve(!err)))
+}
+
+// Launch a GUI app (e.g. Docker Desktop) detached, so it keeps running and doesn't block us.
+function launchDetached(cmd) {
+  const p = spawn(shellQuote(cmd), { shell: true, detached: true, stdio: 'ignore', windowsHide: true })
+  p.unref()
+}
+
 class ProcessManager {
   constructor(services, logger) {
     this.services = services
@@ -35,6 +48,7 @@ class ProcessManager {
     this.intent = {}       // id → 'up' | 'down'
     this.restartCounts = {}
     this.autoRestart = {}  // id → bool (mutable at runtime via the UI toggle)
+    this.flags = { closeDockerOnStop: false } // global behaviour flags (set from config)
 
     services.forEach(s => {
       this.statuses[s.id] = 'stopped'
@@ -53,7 +67,7 @@ class ProcessManager {
     return this.autoRestart[id]
   }
 
-  start(id) {
+  async start(id) {
     const svc = this.byId[id]
     if (!svc) return
     if (this.procs[id]) return // already running
@@ -61,6 +75,20 @@ class ProcessManager {
     this.intent[id] = 'up'
     this.statuses[id] = 'starting'
     this.logger.add(id, `→ Starting ${svc.name}...`)
+
+    // Optional prerequisite (e.g. the Docker engine): make sure it's ready before we
+    // spawn, launching it if needed. If it never comes up, abort rather than spawn into
+    // a guaranteed failure.
+    if (svc.ensure) {
+      const ready = await this._ensure(svc)
+      if (this.intent[id] !== 'up') return        // user stopped it while we waited
+      if (!ready) {
+        this.statuses[id] = 'crashed'
+        this.logger.add(id, `✖ ${svc.ensure.label} not ready — aborting start`)
+        return
+      }
+    }
+    if (this.procs[id] || this.intent[id] !== 'up') return
 
     // This is where the launcher actually talks to your machine: spawn() launches
     // a real OS process running `cmd args` inside the service's `cwd` directory —
@@ -98,11 +126,55 @@ class ProcessManager {
     })
   }
 
+  // Make sure a prerequisite is ready: run its check; if it fails, launch it and poll
+  // until ready or timeout. Returns true once ready. Used for the Docker engine.
+  async _ensure(svc) {
+    const { label, check, start, timeout } = svc.ensure
+    if (await runCheck(check)) return true // already up — no delay
+
+    this.logger.add(svc.id, `⏳ ${label} not running — launching it...`)
+    launchDetached(start)
+
+    const deadline = Date.now() + timeout
+    while (Date.now() < deadline) {
+      await sleep(3000)
+      if (this.intent[svc.id] !== 'up') return false // cancelled
+      if (await runCheck(check)) {
+        this.logger.add(svc.id, `✓ ${label} ready`)
+        return true
+      }
+      this.logger.add(svc.id, `⏳ waiting for ${label}...`)
+    }
+    return false
+  }
+
   stop(id) {
     this.intent[id] = 'down'
+    const svc = this.byId[id]
     const proc = this.procs[id]
+
+    // Custom stop command (e.g. `docker stop <container>`). Needed for services we don't
+    // truly "own" as a process: `docker start -a` only ATTACHES to the container, so
+    // killing our attached client leaves the container running. `docker stop` is what
+    // actually stops it; the attached client then exits on its own (firing 'close').
+    if (svc && svc.stop) {
+      this.statuses[id] = 'stopping'
+      this.logger.add(id, '← Stopping...')
+      exec(svc.stop, { windowsHide: true }, err => {
+        if (err) this.logger.add(id, `⚠ stop command failed: ${err.message}`)
+        // If there was no attached process to fire 'close', settle the status here.
+        if (!this.procs[id] && this.intent[id] === 'down') {
+          this.statuses[id] = 'stopped'
+          this.logger.add(id, '← Stopped')
+        }
+      })
+      this._maybeTeardownEnsure(svc)
+      return
+    }
+
     if (!proc) {
       if (this.statuses[id] !== 'crashed') this.statuses[id] = 'stopped'
+      this._maybeTeardownEnsure(svc)
       return
     }
     this.statuses[id] = 'stopping'
@@ -112,12 +184,24 @@ class ProcessManager {
     // orphan that child and leave the port held. taskkill /T kills the whole tree;
     // /F forces it. This is Windows-specific (no SIGTERM equivalent here).
     try { exec(`taskkill /pid ${proc.pid} /T /F`) } catch (_) {}
+    this._maybeTeardownEnsure(svc)
+  }
+
+  // Optionally tear down a service's prerequisite when stopping it (e.g. close Docker
+  // Desktop after stopping Postgres). Off unless the closeDockerOnStop flag is set.
+  _maybeTeardownEnsure(svc) {
+    if (!svc || !svc.ensure || !svc.ensure.stop) return
+    if (!this.flags.closeDockerOnStop) return
+    this.logger.add(svc.id, `← Closing ${svc.ensure.label}...`)
+    exec(svc.ensure.stop, { windowsHide: true }, err => {
+      if (err) this.logger.add(svc.id, `⚠ couldn't close ${svc.ensure.label}: ${err.message}`)
+    })
   }
 
   async restart(id) {
     this.stop(id)
     await waitFor(() => !this.procs[id], 8000)
-    this.start(id)
+    await this.start(id)
   }
 
   _maybeAutoRestart(svc) {
@@ -130,7 +214,7 @@ class ProcessManager {
     const delay = Math.min(30000, 2000 * this.restartCounts[svc.id]) // linear backoff with cap
     this.logger.add(svc.id, `↻ Auto-restart in ${delay / 1000}s (attempt ${this.restartCounts[svc.id]}/${svc.maxRestarts})`)
     setTimeout(() => {
-      if (this.intent[svc.id] === 'up' && !this.procs[svc.id]) this.start(svc.id)
+      if (this.intent[svc.id] === 'up' && !this.procs[svc.id]) this.start(svc.id).catch(() => {})
     }, delay)
   }
 
@@ -143,7 +227,7 @@ class ProcessManager {
         const ok = await waitFor(() => this.statuses[depId] === 'running', svc.depTimeout)
         if (!ok) this.logger.add(svc.id, `⚠ Dependency "${depId}" never reached running; starting anyway`)
       }
-      this.start(svc.id)
+      this.start(svc.id).catch(() => {})
     }
   }
 

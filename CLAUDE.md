@@ -91,6 +91,7 @@ Token resolution: any `${NAME}` in `services.json` is substituted from the local
 | `${MVN}`         | `mvn`                | path to Maven (FastBank's `cmd`)          |
 | `${PROFILE}`     | `dev-local-postgres` | Spring Boot profile for FastBank          |
 | `${DB_CONTAINER}`| `fastbank-postgres`  | Docker container name for the `postgres` service |
+| `${DOCKER_DESKTOP}`| `...\Docker Desktop.exe` | launched to start the Docker engine when it's off |
 
 A `paths[<id>]` entry overrides that service's folder outright (this is what the **Settings**
 folder browser writes). Resolution is recomputed live when config is saved, and applies the
@@ -99,8 +100,41 @@ next time a service starts.
 **Postgres / the DB:** the `postgres` service starts your Docker container with
 `docker start -a ${DB_CONTAINER}`, and FastBank `dependsOn` it (health `tcp:5432`). Because
 the health check is port-based, it shows `running` whether the launcher started the container
-or you did it by hand — the launcher only can't start the Docker *engine* itself, so Docker
-Desktop must be up first.
+or you did it by hand.
+
+The launcher *can* start the Docker engine itself via the service's `ensure` block (token
+`${DOCKER_DESKTOP}` → default `C:\Program Files\Docker\Docker\Docker Desktop.exe`). FastBank's
+`depTimeout` is 180s to tolerate a cold Docker start.
+
+### The `ensure` block (prerequisites)
+
+Any service can declare a prerequisite that's checked/launched before it spawns:
+
+```json
+"ensure": {
+  "label":   "Docker Desktop",                       // shown in logs
+  "check":   "docker info",                          // command that exits 0 when ready
+  "start":   "${DOCKER_DESKTOP}",                    // launched (detached) if the check fails
+  "stop":    "docker desktop stop & wsl --shutdown", // optional teardown (see flag below)
+  "timeout": 120000                                   // ms to wait for the check to pass
+}
+```
+
+Flow: run `check`; if it passes, proceed instantly (no delay). If not, launch `start` and poll
+`check` every 3s until it passes or `timeout` elapses — if it times out, the service is marked
+`crashed` instead of spawning into a guaranteed failure. It's generic: reuse it for any
+"make sure X is up first" need, not just Docker.
+
+`ensure.stop` is the inverse: a command to tear the prerequisite down when the service is
+stopped. It only runs when the local-config flag **`closeDockerOnStop`** is `true` (a Settings
+toggle, default off) — so by default stopping Postgres stops the container but leaves Docker
+Desktop running.
+
+When on, the teardown is `docker desktop stop & wsl --shutdown`: the first stops the Docker
+engine, the second tears down the WSL2 VM so its memory (the `Vmmem` process, often 1-3 GB) is
+actually reclaimed — stopping the engine alone leaves that VM lingering. **Caveat:**
+`wsl --shutdown` shuts down *all* WSL distros, not just Docker's; the `&` runs both
+sequentially regardless of the first's exit code (cmd.exe semantics).
 
 **Settings UI:** the ⚙ panel lets you set `root`, each service's folder (via a server-backed
 folder browser — the Node backend lists real directories, since browsers can't expose native
@@ -123,6 +157,8 @@ folder paths), and the Maven path. It saves to `launcher.local.json`.
 | `health`      | no   | `{ "type": "tcp" \| "http" \| "process", "path": "/", "url": "" }` |
 | `dependsOn`   | no   | array of ids that must be `running` before this one starts         |
 | `depTimeout`  | no   | ms to wait for dependencies (default 60000)                        |
+| `stop`        | no   | custom stop command (token-substituted). Used instead of `taskkill` for services we don't own as a process — e.g. `docker stop ${DB_CONTAINER}` |
+| `ensure`      | no   | prerequisite to check/launch before spawning (see the `ensure` block below) |
 | `autoRestart` | no   | **initial** value of the toggle; retries on crash (backoff, up to `maxRestarts`). Can be turned on/off live from the UI; the runtime change is not persisted to the JSON |
 | `maxRestarts` | no   | cap on auto-restarts (default 3)                                   |
 

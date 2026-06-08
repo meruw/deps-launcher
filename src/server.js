@@ -95,9 +95,9 @@ function createServer({ pm, config, logger, configModule }) {
       const [, verb, rawId] = action
       const id = decodeURIComponent(rawId)
       if (!pm.byId[id]) return json(404, { error: `unknown service "${id}"` })
-      if (verb === 'start') pm.start(id)
+      if (verb === 'start') pm.start(id).catch(() => {})
       else if (verb === 'stop') pm.stop(id)
-      else if (verb === 'restart') pm.restart(id) // async, not awaited
+      else if (verb === 'restart') pm.restart(id).catch(() => {}) // async, not awaited
       return ok()
     }
 
@@ -111,22 +111,33 @@ function createServer({ pm, config, logger, configModule }) {
     }
 
     // ── Global actions ──
-    if (req.method === 'POST' && pathname === '/api/start-all') { pm.startAll(); return ok() }
+    if (req.method === 'POST' && pathname === '/api/start-all') { pm.startAll().catch(() => {}); return ok() }
     if (req.method === 'POST' && pathname === '/api/stop-all')  { pm.stopAll();  return ok() }
 
     // ── Local config: read current per-machine paths ──
     if (req.method === 'GET' && pathname === '/api/config') {
-      const local = configModule.loadLocal() || { root: '', vars: {}, paths: {} }
-      return json(200, { root: local.root || '', vars: local.vars || {}, paths: local.paths || {} })
+      const local = configModule.loadLocal() || {}
+      return json(200, {
+        root: local.root || '',
+        vars: local.vars || {},
+        paths: local.paths || {},
+        closeDockerOnStop: !!local.closeDockerOnStop
+      })
     }
 
     // ── Local config: save paths and re-resolve live (applies on next start) ──
     if (req.method === 'POST' && pathname === '/api/config') {
       let body
       try { body = await readBody(req) } catch (_) { return json(400, { error: 'invalid JSON body' }) }
-      const local = { root: body.root || '', vars: body.vars || {}, paths: body.paths || {} }
+      const local = {
+        root: body.root || '',
+        vars: body.vars || {},
+        paths: body.paths || {},
+        closeDockerOnStop: !!body.closeDockerOnStop
+      }
       configModule.saveLocal(local)
       configModule.applyLocal(pm.services, local) // mutates service cwd/cmd/args in place
+      pm.flags.closeDockerOnStop = local.closeDockerOnStop // behaviour flag applies immediately
       return json(200, { ok: true })
     }
 

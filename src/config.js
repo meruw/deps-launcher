@@ -43,11 +43,13 @@ function ensureLocal() {
   saveLocal({
     root: process.env.FASTBANK_ROOT || process.env.USERPROFILE || process.cwd(),
     vars: {
-      MVN: 'mvn',                       // Maven; assume on PATH unless pointed at mvn.cmd
-      PROFILE: 'dev-local-postgres',    // Spring Boot profile for FastBank
-      DB_CONTAINER: 'fastbank-postgres' // Docker container name for the Postgres service
+      MVN: 'mvn',                        // Maven; assume on PATH unless pointed at mvn.cmd
+      PROFILE: 'dev-local-postgres',     // Spring Boot profile for FastBank
+      DB_CONTAINER: 'fastbank-postgres', // Docker container name for the Postgres service
+      DOCKER_DESKTOP: 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe' // to auto-launch the engine
     },
-    paths: {} // per-service folder overrides (set from the Settings UI)
+    paths: {},                 // per-service folder overrides (set from the Settings UI)
+    closeDockerOnStop: false   // also close Docker Desktop when stopping (off by default)
   })
   return true
 }
@@ -58,7 +60,8 @@ function buildTokens(local) {
     ROOT: process.env.FASTBANK_ROOT || process.env.USERPROFILE || process.cwd(),
     MVN: 'mvn',
     PROFILE: 'dev-local-postgres',
-    DB_CONTAINER: 'fastbank-postgres'
+    DB_CONTAINER: 'fastbank-postgres',
+    DOCKER_DESKTOP: 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe'
   }
   if (local) {
     if (local.root) tokens.ROOT = local.root
@@ -83,7 +86,15 @@ function applyLocal(services, local) {
     s.cwd = override ? subst(override, tokens) : (subst(s._rawCwd, tokens) || tokens.ROOT)
     s.cmd = subst(s._rawCmd, tokens)
     s.args = s._rawArgs.map(a => subst(a, tokens))
+    s.stop = s._rawStop ? subst(s._rawStop, tokens) : null
     s.health.url = s.health._rawUrl ? subst(s.health._rawUrl, tokens) : null
+    s.ensure = s._rawEnsure ? {
+      label: s._rawEnsure.label || 'dependency',
+      check: subst(s._rawEnsure.check, tokens),
+      start: subst(s._rawEnsure.start, tokens),
+      stop: s._rawEnsure.stop ? subst(s._rawEnsure.stop, tokens) : null,
+      timeout: s._rawEnsure.timeout || 120000
+    } : null
   }
   return services
 }
@@ -144,8 +155,10 @@ function load() {
       _rawCwd: s.cwd || '${ROOT}',
       _rawCmd: s.cmd,
       _rawArgs: s.args || [],
+      _rawStop: s.stop || null,
+      _rawEnsure: s.ensure || null,
       // Resolved values, filled by applyLocal() below.
-      cwd: null, cmd: null, args: null
+      cwd: null, cmd: null, args: null, stop: null, ensure: null
     }
   })
 
@@ -164,6 +177,7 @@ function load() {
     uiPort: cfg.uiPort || 9999,
     openBrowser: cfg.openBrowser !== false,
     services,
+    flags: { closeDockerOnStop: !!(local && local.closeDockerOnStop) },
     createdLocal
   }
 }

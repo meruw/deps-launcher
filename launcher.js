@@ -25,6 +25,7 @@ if (cfg.createdLocal) {
 logger.init(cfg.services.map(s => s.id))
 
 const pm = new ProcessManager(cfg.services, logger)
+pm.flags = cfg.flags
 
 // Heartbeat: every 2s we re-check every service's health (is the port open? is the
 // process alive?) and update its status. This is how the UI stays in sync with reality

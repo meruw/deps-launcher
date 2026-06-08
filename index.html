@@ -421,6 +421,19 @@
           <input type="text" id="set-container" placeholder="fastbank-postgres" />
         </div>
       </div>
+      <div class="set-row">
+        <label>Docker Desktop <code>(${DOCKER_DESKTOP})</code> — auto-launched if the engine is off</label>
+        <div class="path-input">
+          <input type="text" id="set-docker" placeholder="C:\Program Files\Docker\Docker\Docker Desktop.exe" />
+        </div>
+      </div>
+      <div class="set-row" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <label style="margin:0;">Close Docker Desktop when stopping Postgres
+          <span style="display:block; font-size:11px; color:var(--muted); text-transform:none; letter-spacing:0;">otherwise only the container is stopped, the engine stays up</span>
+        </label>
+        <div class="toggle" id="set-closedocker" title="Close Docker Desktop on Stop"
+             onclick="this.classList.toggle('on')"></div>
+      </div>
 
       <p class="modal-hint">
         Saved to <code>launcher.local.json</code> (git-ignored — not shared).
@@ -621,6 +634,8 @@
     document.getElementById('set-mvn').value = v.MVN || ''
     document.getElementById('set-profile').value = v.PROFILE || ''
     document.getElementById('set-container').value = v.DB_CONTAINER || ''
+    document.getElementById('set-docker').value = v.DOCKER_DESKTOP || ''
+    document.getElementById('set-closedocker').classList.toggle('on', !!cfg.closeDockerOnStop)
 
     // One path row per service (uses lastData for names/ids).
     const wrap = document.getElementById('set-services')
@@ -658,14 +673,18 @@
     const mvn       = document.getElementById('set-mvn').value.trim()
     const profile   = document.getElementById('set-profile').value.trim()
     const container = document.getElementById('set-container').value.trim()
+    const docker    = document.getElementById('set-docker').value.trim()
     if (mvn) vars.MVN = mvn
     if (profile) vars.PROFILE = profile
     if (container) vars.DB_CONTAINER = container
+    if (docker) vars.DOCKER_DESKTOP = docker
+
+    const closeDockerOnStop = document.getElementById('set-closedocker').classList.contains('on')
 
     await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ root, vars, paths })
+      body: JSON.stringify({ root, vars, paths, closeDockerOnStop })
     })
     closeSettings()
   }

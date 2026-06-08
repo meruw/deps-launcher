@@ -24,6 +24,14 @@
       "cwd": "${ROOT}",
       "cmd": "docker",
       "args": ["start", "-a", "${DB_CONTAINER}"],
+      "stop": "docker stop ${DB_CONTAINER}",
+      "ensure": {
+        "label": "Docker Desktop",
+        "check": "docker info",
+        "start": "${DOCKER_DESKTOP}",
+        "stop": "docker desktop stop & wsl --shutdown",
+        "timeout": 120000
+      },
       "health": { "type": "tcp" },
       "dependsOn": [],
       "autoRestart": false
@@ -39,6 +47,7 @@
       "args": ["-pl", "server", "spring-boot:run", "-Dspring-boot.run.profiles=${PROFILE}"],
       "health": { "type": "http", "path": "/actuator/health" },
       "dependsOn": ["azurite", "postgres"],
+      "depTimeout": 180000,
       "autoRestart": false
     },
     {
