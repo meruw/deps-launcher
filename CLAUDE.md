@@ -121,6 +121,26 @@ Process events (`close`) are the source of truth for `stopped`/`crashed`.
 - Windows-specific: `taskkill /T /F` kills the process tree (the `shell: true` creates an
   intermediate cmd/powershell, so killing only the direct pid would leave orphans).
 
+## Security
+
+This is a **local dev tool**, not a networked service. The API has **no authentication**
+and can start/stop processes on the host, so it must stay reachable only from this machine:
+
+- The HTTP server binds to **`127.0.0.1`** (loopback), never `0.0.0.0`. Don't change the
+  `server.listen(...)` host or remove it — omitting it makes Node listen on all interfaces,
+  exposing the API to anyone on the same network.
+- **No CORS headers** are sent. The UI is same-origin, so it doesn't need them; adding
+  `Access-Control-Allow-Origin: *` would let any website you visit drive the API from your
+  browser (a drive-by attack on the local service).
+- **CSRF: POST requests are Origin-checked.** Dropping CORS doesn't stop a browser from
+  *sending* a cross-origin POST (it only blocks reading the response), so `server.js`
+  rejects any POST whose `Origin` header isn't our own UI (403). Requests with no Origin
+  (curl, native clients) pass — there are no cookies to forge against.
+- `services.json` contains absolute machine paths — keep the repo **private**.
+
+If you ever need real remote access, put it behind a reverse proxy with auth — don't loosen
+the bind/CORS/Origin checks here.
+
 ## Gotchas
 
 - `spawn(..., { shell: true })` is needed to resolve `.cmd`/`.bat` and PATH commands on

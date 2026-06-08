@@ -7,18 +7,41 @@ const path = require('path')
 const INDEX_HTML = path.join(__dirname, '..', 'index.html')
 
 function createServer({ pm, config, logger }) {
+  // Origins our own UI legitimately sends from.
+  const allowedOrigins = new Set([
+    `http://localhost:${config.uiPort}`,
+    `http://127.0.0.1:${config.uiPort}`
+  ])
+
+  // CSRF defense: a malicious page can still make your browser SEND a cross-origin
+  // POST (dropping CORS only blocks reading the response, not the request). But the
+  // browser always tags such a request with its own Origin, so we reject any Origin
+  // that isn't our UI. Requests with no Origin (curl, native clients) aren't a CSRF
+  // vector — there are no cookies/credentials to ride on — so we let them through.
+  function originAllowed(req) {
+    const origin = req.headers.origin
+    if (!origin) return true
+    return allowedOrigins.has(origin)
+  }
+
   return http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${config.uiPort}`)
     const { pathname } = url
 
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST')
+    // No CORS headers on purpose. The UI is served from this same origin and uses
+    // relative fetches, so it doesn't need them. Adding `Allow-Origin: *` would let
+    // any website you visit drive this API from your browser — exactly what we avoid.
 
     const json = (code, data) => {
       res.writeHead(code, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify(data))
     }
     const ok = () => { res.writeHead(200); res.end('ok') }
+
+    // Block state-changing requests coming from a foreign origin.
+    if (req.method === 'POST' && !originAllowed(req)) {
+      return json(403, { error: 'forbidden: cross-origin request blocked' })
+    }
 
     // ── UI ──
     if (req.method === 'GET' && pathname === '/') {

@@ -28,12 +28,17 @@ const refreshTimer = setInterval(() => pm.refresh().catch(() => {}), 2000)
 
 const server = createServer({ pm, config: cfg, logger })
 
-server.listen(cfg.uiPort, () => {
+// Bind to 127.0.0.1 (loopback) ONLY, never 0.0.0.0. This API has no auth and can
+// start/stop processes on this machine, so it must not be reachable from the network.
+// Omitting the host would make Node listen on all interfaces — don't.
+server.listen(cfg.uiPort, '127.0.0.1', () => {
   console.log('\n ┌─────────────────────────────────────┐')
   console.log(' │  FastBank Launcher                  │')
   console.log(` │  http://localhost:${cfg.uiPort}              │`)
   console.log(' └─────────────────────────────────────┘\n')
   console.log(` ${cfg.services.length} services configured. Ctrl+C to exit.\n`)
+  // Opens the panel in your default browser on startup. Set "openBrowser": false
+  // in services.json if you'd rather it didn't (e.g. you restart the launcher a lot).
   if (cfg.openBrowser) exec(`start http://localhost:${cfg.uiPort}`)
 })
 
