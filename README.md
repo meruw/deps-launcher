@@ -30,6 +30,10 @@ and edit it by hand.
 Your paths never get committed, so the repo is safe to share with teammates: everyone clones
 it and configures their own `launcher.local.json`.
 
+**Database:** FastBank depends on a Postgres container (`fastbank-postgres` by default). Make
+sure **Docker Desktop is running** — then the launcher starts/detects the container on 5432
+and FastBank waits for it before booting. Set the container name and Spring profile in Settings.
+
 ## Add a service
 
 Edit [`services.json`](services.json) and restart. No code changes needed. Use `${ROOT}` in

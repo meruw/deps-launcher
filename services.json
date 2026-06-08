@@ -16,6 +16,19 @@
       "autoRestart": true
     },
     {
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "desc": "Database (Docker container)",
+      "port": 5432,
+      "color": "#0EA5E9",
+      "cwd": "${ROOT}",
+      "cmd": "docker",
+      "args": ["start", "-a", "${DB_CONTAINER}"],
+      "health": { "type": "tcp" },
+      "dependsOn": [],
+      "autoRestart": false
+    },
+    {
       "id": "fastbank",
       "name": "FastBank",
       "desc": "Spring Boot Backend",
@@ -23,9 +36,9 @@
       "color": "#3B82F6",
       "cwd": "${ROOT}\\FastBank",
       "cmd": "${MVN}",
-      "args": ["-pl", "server", "spring-boot:run", "-Dspring-boot.run.profiles=dev-local-postgres"],
+      "args": ["-pl", "server", "spring-boot:run", "-Dspring-boot.run.profiles=${PROFILE}"],
       "health": { "type": "http", "path": "/actuator/health" },
-      "dependsOn": ["azurite"],
+      "dependsOn": ["azurite", "postgres"],
       "autoRestart": false
     },
     {

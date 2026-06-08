@@ -42,8 +42,12 @@ function ensureLocal() {
   if (fs.existsSync(LOCAL_PATH)) return false
   saveLocal({
     root: process.env.FASTBANK_ROOT || process.env.USERPROFILE || process.cwd(),
-    vars: { MVN: 'mvn' }, // assume Maven is on PATH unless the user points to mvn.cmd
-    paths: {}             // per-service folder overrides (set from the Settings UI)
+    vars: {
+      MVN: 'mvn',                       // Maven; assume on PATH unless pointed at mvn.cmd
+      PROFILE: 'dev-local-postgres',    // Spring Boot profile for FastBank
+      DB_CONTAINER: 'fastbank-postgres' // Docker container name for the Postgres service
+    },
+    paths: {} // per-service folder overrides (set from the Settings UI)
   })
   return true
 }
@@ -52,7 +56,9 @@ function ensureLocal() {
 function buildTokens(local) {
   const tokens = {
     ROOT: process.env.FASTBANK_ROOT || process.env.USERPROFILE || process.cwd(),
-    MVN: 'mvn'
+    MVN: 'mvn',
+    PROFILE: 'dev-local-postgres',
+    DB_CONTAINER: 'fastbank-postgres'
   }
   if (local) {
     if (local.root) tokens.ROOT = local.root

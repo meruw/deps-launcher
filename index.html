@@ -402,11 +402,23 @@
       <div class="set-section">Service folders</div>
       <div id="set-services"></div>
 
-      <div class="set-section">Tools</div>
+      <div class="set-section">Tools &amp; variables</div>
       <div class="set-row">
         <label>Maven <code>(${MVN})</code> — path to mvn.cmd, or just <code>mvn</code> if on PATH</label>
         <div class="path-input">
           <input type="text" id="set-mvn" placeholder="mvn" />
+        </div>
+      </div>
+      <div class="set-row">
+        <label>Spring profile <code>(${PROFILE})</code></label>
+        <div class="path-input">
+          <input type="text" id="set-profile" placeholder="dev-local-postgres" />
+        </div>
+      </div>
+      <div class="set-row">
+        <label>Postgres Docker container <code>(${DB_CONTAINER})</code></label>
+        <div class="path-input">
+          <input type="text" id="set-container" placeholder="fastbank-postgres" />
         </div>
       </div>
 
@@ -604,8 +616,11 @@
   async function openSettings() {
     const cfg = await (await fetch('/api/config')).json()
 
+    const v = cfg.vars || {}
     document.getElementById('set-root').value = cfg.root || ''
-    document.getElementById('set-mvn').value = (cfg.vars && cfg.vars.MVN) || ''
+    document.getElementById('set-mvn').value = v.MVN || ''
+    document.getElementById('set-profile').value = v.PROFILE || ''
+    document.getElementById('set-container').value = v.DB_CONTAINER || ''
 
     // One path row per service (uses lastData for names/ids).
     const wrap = document.getElementById('set-services')
@@ -630,7 +645,6 @@
 
   async function saveSettings() {
     const root = document.getElementById('set-root').value.trim()
-    const mvn  = document.getElementById('set-mvn').value.trim()
 
     // Only keep services with a non-empty override; empty = fall back to ${ROOT}.
     const paths = {}
@@ -639,8 +653,14 @@
       if (v) paths[svc.id] = v
     })
 
+    // Only keep non-empty vars; empty ones fall back to the launcher's defaults.
     const vars = {}
+    const mvn       = document.getElementById('set-mvn').value.trim()
+    const profile   = document.getElementById('set-profile').value.trim()
+    const container = document.getElementById('set-container').value.trim()
     if (mvn) vars.MVN = mvn
+    if (profile) vars.PROFILE = profile
+    if (container) vars.DB_CONTAINER = container
 
     await fetch('/api/config', {
       method: 'POST',

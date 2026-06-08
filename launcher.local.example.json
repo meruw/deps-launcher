@@ -4,8 +4,10 @@
   "root": "C:\\Users\\YOUR_USER",
 
   "vars": {
-    "_comment": "Tool paths referenced as ${NAME} in services.json. Use 'mvn' if Maven is on your PATH.",
-    "MVN": "C:\\Program Files\\Apache\\Maven\\apache-maven-3.9.15\\bin\\mvn.cmd"
+    "_comment": "Values for ${NAME} tokens in services.json. Use 'mvn' if Maven is on your PATH.",
+    "MVN": "C:\\Program Files\\Apache\\Maven\\apache-maven-3.9.15\\bin\\mvn.cmd",
+    "PROFILE": "dev-local-postgres",
+    "DB_CONTAINER": "fastbank-postgres"
   },
 
   "paths": {

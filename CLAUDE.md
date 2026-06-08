@@ -82,10 +82,25 @@ leaking anyone's machine paths:
   Auto-created on first run with defaults; `launcher.local.example.json` is the documented
   template for teammates.
 
-Token resolution: `${ROOT}`/`${MVN}`/any `vars` key in `services.json` is substituted from
-the local config. A `paths[<id>]` entry overrides that service's folder outright (this is
-what the **Settings** folder browser writes). Resolution is recomputed live when config is
-saved, and applies the next time a service starts.
+Token resolution: any `${NAME}` in `services.json` is substituted from the local config
+(`vars`), with built-in defaults. Current tokens:
+
+| token            | default              | used for                                  |
+|------------------|----------------------|-------------------------------------------|
+| `${ROOT}`        | `%USERPROFILE%`      | base folder for every service's `cwd`     |
+| `${MVN}`         | `mvn`                | path to Maven (FastBank's `cmd`)          |
+| `${PROFILE}`     | `dev-local-postgres` | Spring Boot profile for FastBank          |
+| `${DB_CONTAINER}`| `fastbank-postgres`  | Docker container name for the `postgres` service |
+
+A `paths[<id>]` entry overrides that service's folder outright (this is what the **Settings**
+folder browser writes). Resolution is recomputed live when config is saved, and applies the
+next time a service starts.
+
+**Postgres / the DB:** the `postgres` service starts your Docker container with
+`docker start -a ${DB_CONTAINER}`, and FastBank `dependsOn` it (health `tcp:5432`). Because
+the health check is port-based, it shows `running` whether the launcher started the container
+or you did it by hand — the launcher only can't start the Docker *engine* itself, so Docker
+Desktop must be up first.
 
 **Settings UI:** the ⚙ panel lets you set `root`, each service's folder (via a server-backed
 folder browser — the Node backend lists real directories, since browsers can't expose native
