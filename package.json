@@ -1,0 +1,14 @@
+{
+  "name": "fastbank-launcher",
+  "version": "1.0.0",
+  "description": "Panel local para levantar todos los microservicios de FastBank desde un solo lugar",
+  "main": "launcher.js",
+  "scripts": {
+    "start": "node launcher.js"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "private": true,
+  "license": "UNLICENSED"
+}

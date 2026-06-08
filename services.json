@@ -1,0 +1,85 @@
+{
+  "uiPort": 9999,
+  "root": "C:\\Users\\user",
+  "openBrowser": true,
+  "services": [
+    {
+      "id": "azurite",
+      "name": "Azurite",
+      "desc": "Azure Storage Emulator",
+      "port": 10000,
+      "color": "#F59E0B",
+      "cwd": "${ROOT}",
+      "cmd": "azurite",
+      "args": [],
+      "health": { "type": "process" },
+      "dependsOn": [],
+      "autoRestart": true
+    },
+    {
+      "id": "fastbank",
+      "name": "FastBank",
+      "desc": "Spring Boot Backend",
+      "port": 8080,
+      "color": "#3B82F6",
+      "cwd": "${ROOT}\\FastBank",
+      "cmd": "C:\\Program Files\\Apache\\Maven\\apache-maven-3.9.15\\bin\\mvn.cmd",
+      "args": ["-pl", "server", "spring-boot:run", "-Dspring-boot.run.profiles=dev-local-postgres"],
+      "health": { "type": "http", "path": "/actuator/health" },
+      "dependsOn": ["azurite"],
+      "autoRestart": false
+    },
+    {
+      "id": "featureflags",
+      "name": "Feature Flags",
+      "desc": "Azure Function :7071",
+      "port": 7071,
+      "color": "#8B5CF6",
+      "cwd": "${ROOT}\\FastBank-Feature_Flags\\FeatureFlag",
+      "cmd": "func",
+      "args": ["start", "--port", "7071", "--cors", "http://localhost:4200"],
+      "health": { "type": "tcp" },
+      "dependsOn": ["azurite"],
+      "autoRestart": false
+    },
+    {
+      "id": "company",
+      "name": "Company",
+      "desc": "Python Azure Function :7072",
+      "port": 7072,
+      "color": "#10B981",
+      "cwd": "${ROOT}\\FastBank-Company",
+      "cmd": "powershell",
+      "args": ["-NoProfile", "-Command", "& '.\\venv\\Scripts\\Activate.ps1'; func start --port 7072 --cors http://localhost:4200"],
+      "health": { "type": "tcp" },
+      "dependsOn": ["azurite"],
+      "autoRestart": false
+    },
+    {
+      "id": "bankrecon",
+      "name": "Bank Recon",
+      "desc": ".NET Azure Function :7073",
+      "port": 7073,
+      "color": "#EF4444",
+      "cwd": "${ROOT}\\FastBank-BankRecon\\FastBankReconProcess",
+      "cmd": "func",
+      "args": ["start", "--port", "7073", "--cors", "http://localhost:4200"],
+      "health": { "type": "tcp" },
+      "dependsOn": ["azurite"],
+      "autoRestart": false
+    },
+    {
+      "id": "webapp",
+      "name": "WebApp",
+      "desc": "Angular :4200",
+      "port": 4200,
+      "color": "#EC4899",
+      "cwd": "${ROOT}\\FastBank-WebApp",
+      "cmd": "npm",
+      "args": ["start"],
+      "health": { "type": "tcp" },
+      "dependsOn": [],
+      "autoRestart": false
+    }
+  ]
+}

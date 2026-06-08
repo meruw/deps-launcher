@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>FastBank Launcher</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0D1117;
+      --surface:  #161B22;
+      --border:   #30363D;
+      --text:     #E6EDF3;
+      --muted:    #7D8590;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+
+    .brand-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .brand-sub   { font-size: 12px; color: var(--muted); }
+
+    .header-actions { display: flex; gap: 10px; }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-primary {
+      background: #238636;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #2EA043; }
+
+    .btn-danger {
+      background: transparent;
+      color: #F85149;
+      border: 1px solid #F85149;
+    }
+    .btn-danger:hover { background: rgba(248,81,73,.1); }
+
+    /* ── Summary bar ─────────────────────────────────────────────── */
+    .summary {
+      display: flex;
+      gap: 24px;
+      padding: 14px 32px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .summary span { display: flex; align-items: center; gap: 6px; }
+    .dot-sm { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── Grid ────────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+      padding: 24px 32px;
+    }
+
+    /* ── Service Card ────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: #484F58; }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px 12px;
+      border-left: 3px solid var(--accent, #3B82F6);
+    }
+
+    .card-info { display: flex; align-items: center; gap: 12px; }
+
+    .status-led {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .led-stopped  { background: #484F58; }
+    .led-stopping { background: #F59E0B; animation: pulse-yellow 0.6s infinite; }
+    .led-starting { background: #F59E0B; animation: pulse-yellow 1s infinite; }
+    .led-running  { background: #22C55E; animation: pulse-green 2s infinite; }
+    .led-crashed  { background: #F85149; animation: pulse-red 1.2s infinite; }
+
+    @keyframes pulse-yellow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,.5); }
+      50%       { box-shadow: 0 0 0 5px rgba(245,158,11,0); }
+    }
+    @keyframes pulse-green {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+      50%       { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
+    }
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(248,81,73,.5); }
+      50%       { box-shadow: 0 0 0 5px rgba(248,81,73,0); }
+    }
+
+    .svc-name { font-weight: 700; font-size: 15px; }
+    .svc-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .card-actions { display: flex; align-items: center; gap: 8px; }
+
+    .port-badge {
+      font-size: 11px;
+      font-family: 'SF Mono', monospace;
+      background: rgba(255,255,255,.07);
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: var(--muted);
+    }
+
+    .btn-sm {
+      padding: 5px 14px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+    .btn-sm:active { transform: scale(0.96); }
+
+    .btn-start { background: rgba(35,134,54,.25); color: #3FB950; border: 1px solid rgba(35,134,54,.5); }
+    .btn-start:hover { background: rgba(35,134,54,.4); }
+
+    .btn-stop  { background: rgba(248,81,73,.15); color: #F85149; border: 1px solid rgba(248,81,73,.4); }
+    .btn-stop:hover { background: rgba(248,81,73,.28); }
+
+    .btn-restart { background: rgba(56,139,253,.15); color: #58A6FF; border: 1px solid rgba(56,139,253,.4); }
+    .btn-restart:hover { background: rgba(56,139,253,.3); }
+
+    .btn-disabled { opacity: .35; pointer-events: none; }
+
+    .deps-badge {
+      font-size: 10px;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      padding: 2px 7px;
+      border-radius: 6px;
+    }
+
+    /* ── Auto-restart row ────────────────────────────────────────── */
+    .card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .toggle {
+      position: relative;
+      width: 34px; height: 18px;
+      border-radius: 9px;
+      background: #30363D;
+      cursor: pointer;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #8B949E;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle.on { background: rgba(35,134,54,.6); }
+    .toggle.on::after { transform: translateX(16px); background: #3FB950; }
+
+    /* ── Log section ─────────────────────────────────────────────── */
+    .log-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 18px;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      border-top: 1px solid var(--border);
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .log-toggle:hover { background: rgba(255,255,255,.03); }
+    .log-toggle .arrow { transition: transform 0.2s; }
+    .log-toggle.open .arrow { transform: rotate(180deg); }
+
+    .log-box {
+      display: none;
+      background: #010409;
+      padding: 10px 14px;
+      font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #8B949E;
+      max-height: 180px;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+    }
+    .log-box.visible { display: block; }
+    .log-box::-webkit-scrollbar { width: 4px; }
+    .log-box::-webkit-scrollbar-track { background: transparent; }
+    .log-box::-webkit-scrollbar-thumb { background: #30363D; border-radius: 2px; }
+
+    .log-line { white-space: pre-wrap; word-break: break-all; }
+    .log-line:last-child { color: #CDD9E5; }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 16px;
+      font-size: 11px;
+      color: #484F58;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">⚡</div>
+    <div>
+      <div class="brand-title">FastBank Launcher</div>
+      <div class="brand-sub">Entorno local de desarrollo</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-primary" onclick="startAll()">▶ Start All</button>
+    <button class="btn btn-danger"  onclick="stopAll()">■ Stop All</button>
+  </div>
+</header>
+
+<div class="summary">
+  <span><span class="dot-sm" style="background:#22C55E"></span> <span id="count-running">0</span> corriendo</span>
+  <span><span class="dot-sm" style="background:#F59E0B"></span> <span id="count-starting">0</span> iniciando</span>
+  <span><span class="dot-sm" style="background:#484F58"></span> <span id="count-stopped">0</span> detenidos</span>
+  <span><span class="dot-sm" style="background:#F85149"></span> <span id="count-crashed">0</span> caídos</span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<footer>FastBank · Entorno local · actualiza cada 2s</footer>
+
+<script>
+  let openLogs = new Set()
+  let lastData  = []
+
+  async function fetchStatus() {
+    try {
+      const r = await fetch('/api/status')
+      lastData = await r.json()
+      render(lastData)
+    } catch (_) {}
+  }
+
+  function render(services) {
+    // Summary
+    document.getElementById('count-running').textContent  = services.filter(s => s.status === 'running').length
+    document.getElementById('count-starting').textContent = services.filter(s => s.status === 'starting' || s.status === 'stopping').length
+    document.getElementById('count-stopped').textContent  = services.filter(s => s.status === 'stopped').length
+    document.getElementById('count-crashed').textContent  = services.filter(s => s.status === 'crashed').length
+
+    const grid = document.getElementById('grid')
+
+    services.forEach(svc => {
+      let card = document.getElementById(`card-${svc.id}`)
+
+      if (!card) {
+        card = document.createElement('div')
+        card.className = 'card'
+        card.id = `card-${svc.id}`
+        card.innerHTML = buildCard(svc)
+        grid.appendChild(card)
+
+        // Toggle log
+        card.querySelector('.log-toggle').addEventListener('click', () => {
+          const box = card.querySelector('.log-box')
+          const toggle = card.querySelector('.log-toggle')
+          const isOpen = box.classList.toggle('visible')
+          toggle.classList.toggle('open', isOpen)
+          isOpen ? openLogs.add(svc.id) : openLogs.delete(svc.id)
+        })
+      } else {
+        updateCard(card, svc)
+      }
+    })
+  }
+
+  function buildCard(svc) {
+    const ledClass = `led-${svc.status}`
+    const active = svc.status === 'running' || svc.status === 'starting'
+    const logOpen   = openLogs.has(svc.id) ? 'visible' : ''
+    const toggleOpen = openLogs.has(svc.id) ? 'open' : ''
+    const deps = (svc.deps && svc.deps.length)
+      ? `<span class="deps-badge" title="Depende de">⛓ ${svc.deps.join(', ')}</span>` : ''
+
+    return `
+      <div class="card-header" style="--accent: ${svc.color}">
+        <div class="card-info">
+          <div class="status-led ${ledClass}" id="led-${svc.id}"></div>
+          <div>
+            <div class="svc-name">${svc.name}</div>
+            <div class="svc-desc">${svc.desc}</div>
+          </div>
+        </div>
+        <div class="card-actions">
+          ${deps}
+          ${svc.port ? `<span class="port-badge">:${svc.port}</span>` : ''}
+          <button class="btn-sm btn-start ${active ? 'btn-disabled' : ''}"
+                  id="btn-start-${svc.id}"
+                  onclick="start('${svc.id}')">Start</button>
+          <button class="btn-sm btn-restart ${!active ? 'btn-disabled' : ''}"
+                  id="btn-restart-${svc.id}"
+                  onclick="restart('${svc.id}')">↻</button>
+          <button class="btn-sm btn-stop ${!active ? 'btn-disabled' : ''}"
+                  id="btn-stop-${svc.id}"
+                  onclick="stop('${svc.id}')">Stop</button>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>Auto-restart al caer</span>
+        <div class="toggle ${svc.autoRestart ? 'on' : ''}"
+             id="auto-${svc.id}"
+             title="Reiniciar automáticamente si el servicio crashea"
+             onclick="toggleAuto('${svc.id}')"></div>
+      </div>
+      <div class="log-toggle ${toggleOpen}">
+        <span>Logs</span>
+        <span class="arrow">▾</span>
+      </div>
+      <div class="log-box ${logOpen}" id="log-${svc.id}">
+        ${svc.logs.map(l => `<div class="log-line">${escHtml(l)}</div>`).join('')}
+      </div>
+    `
+  }
+
+  function updateCard(card, svc) {
+    // LED
+    const led = card.querySelector(`#led-${svc.id}`)
+    if (led) led.className = `status-led led-${svc.status}`
+
+    // Botones
+    const active = svc.status === 'running' || svc.status === 'starting'
+    const btnStart   = card.querySelector(`#btn-start-${svc.id}`)
+    const btnStop    = card.querySelector(`#btn-stop-${svc.id}`)
+    const btnRestart = card.querySelector(`#btn-restart-${svc.id}`)
+    if (btnStart)   btnStart.classList.toggle('btn-disabled', active)
+    if (btnStop)    btnStop.classList.toggle('btn-disabled', !active)
+    if (btnRestart) btnRestart.classList.toggle('btn-disabled', !active)
+
+    // Toggle auto-restart (no pisar si el usuario lo está por tocar; refleja el server)
+    const auto = card.querySelector(`#auto-${svc.id}`)
+    if (auto) auto.classList.toggle('on', !!svc.autoRestart)
+
+    // Logs (solo si está abierto)
+    if (openLogs.has(svc.id)) {
+      const logBox = card.querySelector(`#log-${svc.id}`)
+      if (logBox) {
+        const wasAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + 20
+        logBox.innerHTML = svc.logs.map(l => `<div class="log-line">${escHtml(l)}</div>`).join('')
+        if (wasAtBottom) logBox.scrollTop = logBox.scrollHeight
+      }
+    }
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+
+  async function start(id) {
+    await fetch(`/api/start/${id}`, { method: 'POST' })
+    fetchStatus()
+  }
+
+  async function stop(id) {
+    await fetch(`/api/stop/${id}`, { method: 'POST' })
+    fetchStatus()
+  }
+
+  async function restart(id) {
+    await fetch(`/api/restart/${id}`, { method: 'POST' })
+    fetchStatus()
+  }
+
+  async function toggleAuto(id) {
+    // Optimista: reflejar el cambio al toque, el server confirma en el próximo poll.
+    document.getElementById(`auto-${id}`)?.classList.toggle('on')
+    await fetch(`/api/autorestart/${id}`, { method: 'POST' })
+  }
+
+  async function startAll() {
+    await fetch('/api/start-all', { method: 'POST' })
+    fetchStatus()
+  }
+
+  async function stopAll() {
+    await fetch('/api/stop-all', { method: 'POST' })
+    fetchStatus()
+  }
+
+  // Polling cada 2s
+  fetchStatus()
+  setInterval(fetchStatus, 2000)
+</script>
+</body>
+</html>
