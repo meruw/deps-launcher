@@ -259,6 +259,102 @@
       color: #484F58;
       border-top: 1px solid var(--border);
     }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,.05); }
+
+    /* ── Modals (Settings + folder browser) ──────────────────────── */
+    .overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(1,4,9,.7);
+      z-index: 50;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%; max-width: 560px;
+      max-height: 85vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border);
+      font-size: 16px; font-weight: 700;
+    }
+    .modal-head .x { cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; }
+    .modal-body { padding: 18px 22px; overflow-y: auto; }
+    .modal-actions {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+    }
+
+    .set-row { margin-bottom: 14px; }
+    .set-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    .set-row .path-input { display: flex; gap: 8px; }
+    .set-row input {
+      flex: 1;
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 12px;
+    }
+    .set-row input:focus { outline: none; border-color: #3B82F6; }
+    .pick-btn {
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 0 12px;
+      font-size: 15px;
+    }
+    .pick-btn:hover { background: rgba(255,255,255,.12); }
+    .set-section { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin: 18px 0 10px; }
+    .modal-hint { font-size: 11px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+    /* folder browser */
+    .browse-current {
+      font-family: 'SF Mono', 'Consolas', monospace;
+      font-size: 12px;
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      word-break: break-all;
+      color: #CDD9E5;
+    }
+    .browse-list {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+    .browse-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .browse-item:last-child { border-bottom: none; }
+    .browse-item:hover { background: rgba(255,255,255,.05); }
+    .browse-item.up { color: var(--muted); }
   </style>
 </head>
 <body>
@@ -272,6 +368,7 @@
     </div>
   </div>
   <div class="header-actions">
+    <button class="btn btn-ghost"   onclick="openSettings()">⚙ Settings</button>
     <button class="btn btn-primary" onclick="startAll()">▶ Start All</button>
     <button class="btn btn-danger"  onclick="stopAll()">■ Stop All</button>
   </div>
@@ -285,6 +382,64 @@
 </div>
 
 <div class="grid" id="grid"></div>
+
+<!-- ── Settings modal ── -->
+<div class="overlay" id="settings-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <span>⚙ Settings — service paths</span>
+      <span class="x" onclick="closeSettings()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="set-row">
+        <label>Root folder <code>(${ROOT})</code></label>
+        <div class="path-input">
+          <input type="text" id="set-root" placeholder="C:\Users\you" />
+          <button class="pick-btn" onclick="pickFolder('set-root')">📁</button>
+        </div>
+      </div>
+
+      <div class="set-section">Service folders</div>
+      <div id="set-services"></div>
+
+      <div class="set-section">Tools</div>
+      <div class="set-row">
+        <label>Maven <code>(${MVN})</code> — path to mvn.cmd, or just <code>mvn</code> if on PATH</label>
+        <div class="path-input">
+          <input type="text" id="set-mvn" placeholder="mvn" />
+        </div>
+      </div>
+
+      <p class="modal-hint">
+        Saved to <code>launcher.local.json</code> (git-ignored — not shared).
+        Leaving a service folder empty falls back to <code>${ROOT}</code> + its default subfolder.
+        Restart a service for path changes to take effect.
+      </p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Folder browser modal ── -->
+<div class="overlay" id="browse-overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <span>📁 Pick a folder</span>
+      <span class="x" onclick="closeBrowse()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="browse-current" id="browse-current">—</div>
+      <div class="browse-list" id="browse-list"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeBrowse()">Cancel</button>
+      <button class="btn btn-primary" onclick="chooseBrowse()">Select this folder</button>
+    </div>
+  </div>
+</div>
 
 <footer>FastBank · Local environment · refreshes every 2s</footer>
 
@@ -444,6 +599,118 @@
     await fetch('/api/stop-all', { method: 'POST' })
     fetchStatus()
   }
+
+  // ── Settings ────────────────────────────────────────────────────────────
+  async function openSettings() {
+    const cfg = await (await fetch('/api/config')).json()
+
+    document.getElementById('set-root').value = cfg.root || ''
+    document.getElementById('set-mvn').value = (cfg.vars && cfg.vars.MVN) || ''
+
+    // One path row per service (uses lastData for names/ids).
+    const wrap = document.getElementById('set-services')
+    wrap.innerHTML = lastData.map(svc => `
+      <div class="set-row">
+        <label>${svc.name}</label>
+        <div class="path-input">
+          <input type="text" id="set-path-${svc.id}"
+                 value="${(cfg.paths && cfg.paths[svc.id]) || ''}"
+                 placeholder="(empty → default folder under \${ROOT})" />
+          <button class="pick-btn" onclick="pickFolder('set-path-${svc.id}')">📁</button>
+        </div>
+      </div>
+    `).join('')
+
+    document.getElementById('settings-overlay').classList.add('open')
+  }
+
+  function closeSettings() {
+    document.getElementById('settings-overlay').classList.remove('open')
+  }
+
+  async function saveSettings() {
+    const root = document.getElementById('set-root').value.trim()
+    const mvn  = document.getElementById('set-mvn').value.trim()
+
+    // Only keep services with a non-empty override; empty = fall back to ${ROOT}.
+    const paths = {}
+    lastData.forEach(svc => {
+      const v = document.getElementById(`set-path-${svc.id}`).value.trim()
+      if (v) paths[svc.id] = v
+    })
+
+    const vars = {}
+    if (mvn) vars.MVN = mvn
+
+    await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ root, vars, paths })
+    })
+    closeSettings()
+  }
+
+  // ── Folder browser ──────────────────────────────────────────────────────
+  let browseTargetInput = null  // id of the input to fill when a folder is chosen
+  let browseCurrent = ''        // path currently shown
+
+  function pickFolder(inputId) {
+    browseTargetInput = inputId
+    const start = document.getElementById(inputId).value.trim()
+    navigateBrowse(start) // empty start → drive list
+    document.getElementById('browse-overlay').classList.add('open')
+  }
+
+  function closeBrowse() {
+    document.getElementById('browse-overlay').classList.remove('open')
+  }
+
+  async function navigateBrowse(p) {
+    let data
+    try {
+      data = await (await fetch('/api/browse?path=' + encodeURIComponent(p || ''))).json()
+    } catch (_) { return }
+    if (data.error) { // unreadable path → go back to drive list
+      data = await (await fetch('/api/browse')).json()
+    }
+
+    browseCurrent = data.path || ''
+    document.getElementById('browse-current').textContent = browseCurrent || 'This PC (drives)'
+
+    const list = document.getElementById('browse-list')
+    const items = []
+
+    if (data.parent) {
+      items.push(`<div class="browse-item up" onclick="navigateBrowse('${esc(data.parent)}')">⬆ ..</div>`)
+    } else if (browseCurrent) {
+      // at a drive root → offer going back to the drive list
+      items.push(`<div class="browse-item up" onclick="navigateBrowse('')">⬆ Drives</div>`)
+    }
+    ;(data.drives || []).forEach(d => {
+      items.push(`<div class="browse-item" onclick="navigateBrowse('${esc(d)}')">💽 ${d}</div>`)
+    })
+    ;(data.dirs || []).forEach(name => {
+      const full = joinPath(browseCurrent, name)
+      items.push(`<div class="browse-item" onclick="navigateBrowse('${esc(full)}')">📁 ${escHtml(name)}</div>`)
+    })
+
+    list.innerHTML = items.join('') || '<div class="browse-item up">(no subfolders)</div>'
+  }
+
+  function chooseBrowse() {
+    if (browseTargetInput && browseCurrent) {
+      document.getElementById(browseTargetInput).value = browseCurrent
+    }
+    closeBrowse()
+  }
+
+  function joinPath(base, name) {
+    if (!base) return name
+    return base.endsWith('\\') ? base + name : base + '\\' + name
+  }
+
+  // escape for use inside a single-quoted inline onclick attribute
+  function esc(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'") }
 
   // Poll every 2s
   fetchStatus()

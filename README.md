@@ -20,10 +20,20 @@ Opens `http://localhost:9999` automatically. From there:
 
 `Ctrl+C` in the terminal shuts down the launcher and kills all services.
 
+## Setup (per machine)
+
+The first run creates `launcher.local.json` (git-ignored) with default paths. Point it at
+your folders from the **⚙ Settings** panel — set the root, each service's folder (via the
+folder browser), and your Maven path. Or copy [`launcher.local.example.json`](launcher.local.example.json)
+and edit it by hand.
+
+Your paths never get committed, so the repo is safe to share with teammates: everyone clones
+it and configures their own `launcher.local.json`.
+
 ## Add a service
 
-Edit [`services.json`](services.json) and restart. No code changes needed.
-See [CLAUDE.md](CLAUDE.md) for the detail of each field and the architecture.
+Edit [`services.json`](services.json) and restart. No code changes needed. Use `${ROOT}` in
+`cwd` instead of absolute paths. See [CLAUDE.md](CLAUDE.md) for each field and the architecture.
 
 ## Requirements
 

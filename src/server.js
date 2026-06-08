@@ -6,7 +6,35 @@ const path = require('path')
 
 const INDEX_HTML = path.join(__dirname, '..', 'index.html')
 
-function createServer({ pm, config, logger }) {
+// Read a JSON request body (small, capped to avoid abuse).
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = ''
+    req.on('data', c => { data += c; if (data.length > 1e6) req.destroy() })
+    req.on('end', () => { try { resolve(data ? JSON.parse(data) : {}) } catch (e) { reject(e) } })
+    req.on('error', reject)
+  })
+}
+
+// List the folders inside a directory (for the Settings folder browser).
+function listDir(dir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true })
+  const dirs = entries.filter(e => e.isDirectory()).map(e => e.name).sort((a, b) => a.localeCompare(b))
+  const parent = path.dirname(dir)
+  return { path: dir, parent: parent === dir ? null : parent, dirs }
+}
+
+// List available drive roots on Windows (C:\, D:\, ...) by probing letters.
+function listDrives() {
+  const drives = []
+  for (let c = 67; c <= 90; c++) { // C..Z (skip A/B floppies)
+    const root = String.fromCharCode(c) + ':\\'
+    try { fs.accessSync(root); drives.push(root) } catch (_) {}
+  }
+  return { path: '', parent: null, drives, dirs: [] }
+}
+
+function createServer({ pm, config, logger, configModule }) {
   // Origins our own UI legitimately sends from.
   const allowedOrigins = new Set([
     `http://localhost:${config.uiPort}`,
@@ -85,6 +113,32 @@ function createServer({ pm, config, logger }) {
     // ── Global actions ──
     if (req.method === 'POST' && pathname === '/api/start-all') { pm.startAll(); return ok() }
     if (req.method === 'POST' && pathname === '/api/stop-all')  { pm.stopAll();  return ok() }
+
+    // ── Local config: read current per-machine paths ──
+    if (req.method === 'GET' && pathname === '/api/config') {
+      const local = configModule.loadLocal() || { root: '', vars: {}, paths: {} }
+      return json(200, { root: local.root || '', vars: local.vars || {}, paths: local.paths || {} })
+    }
+
+    // ── Local config: save paths and re-resolve live (applies on next start) ──
+    if (req.method === 'POST' && pathname === '/api/config') {
+      let body
+      try { body = await readBody(req) } catch (_) { return json(400, { error: 'invalid JSON body' }) }
+      const local = { root: body.root || '', vars: body.vars || {}, paths: body.paths || {} }
+      configModule.saveLocal(local)
+      configModule.applyLocal(pm.services, local) // mutates service cwd/cmd/args in place
+      return json(200, { ok: true })
+    }
+
+    // ── Folder browser: list drives (no path) or subfolders of a directory ──
+    if (req.method === 'GET' && pathname === '/api/browse') {
+      const p = url.searchParams.get('path') || ''
+      try {
+        return json(200, p ? listDir(p) : listDrives())
+      } catch (e) {
+        return json(400, { error: e.message })
+      }
+    }
 
     res.writeHead(404)
     res.end()

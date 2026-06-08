@@ -1,0 +1,15 @@
+{
+  "_comment": "Per-machine config. Copy to launcher.local.json (gitignored) and adjust. The launcher also creates launcher.local.json on first run, and you can edit it from the Settings panel in the UI.",
+
+  "root": "C:\\Users\\YOUR_USER",
+
+  "vars": {
+    "_comment": "Tool paths referenced as ${NAME} in services.json. Use 'mvn' if Maven is on your PATH.",
+    "MVN": "C:\\Program Files\\Apache\\Maven\\apache-maven-3.9.15\\bin\\mvn.cmd"
+  },
+
+  "paths": {
+    "_comment": "Optional per-service folder overrides (absolute paths). Anything here wins over the ${ROOT}-based cwd in services.json. The Settings folder browser writes here.",
+    "fastbank": "D:\\repos\\FastBank"
+  }
+}

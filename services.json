@@ -1,6 +1,5 @@
 {
   "uiPort": 9999,
-  "root": "C:\\Users\\user",
   "openBrowser": true,
   "services": [
     {
@@ -23,7 +22,7 @@
       "port": 8080,
       "color": "#3B82F6",
       "cwd": "${ROOT}\\FastBank",
-      "cmd": "C:\\Program Files\\Apache\\Maven\\apache-maven-3.9.15\\bin\\mvn.cmd",
+      "cmd": "${MVN}",
       "args": ["-pl", "server", "spring-boot:run", "-Dspring-boot.run.profiles=dev-local-postgres"],
       "health": { "type": "http", "path": "/actuator/health" },
       "dependsOn": ["azurite"],

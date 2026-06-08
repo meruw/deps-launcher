@@ -17,6 +17,11 @@ try {
   process.exit(1)
 }
 
+if (cfg.createdLocal) {
+  console.log('\n ℹ First run: created launcher.local.json with default paths.')
+  console.log('   Adjust your folders in the Settings panel (⚙) or edit that file.\n')
+}
+
 logger.init(cfg.services.map(s => s.id))
 
 const pm = new ProcessManager(cfg.services, logger)
@@ -26,7 +31,7 @@ const pm = new ProcessManager(cfg.services, logger)
 // even if a service crashes, or if you started one from another terminal.
 const refreshTimer = setInterval(() => pm.refresh().catch(() => {}), 2000)
 
-const server = createServer({ pm, config: cfg, logger })
+const server = createServer({ pm, config: cfg, logger, configModule: config })
 
 // Bind to 127.0.0.1 (loopback) ONLY, never 0.0.0.0. This API has no auth and can
 // start/stop processes on this machine, so it must not be reachable from the network.

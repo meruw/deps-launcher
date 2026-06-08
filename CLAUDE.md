@@ -32,16 +32,17 @@ Requires Node >= 16. Built for **Windows** (uses `taskkill` and `start`).
 Thin entry point + single-responsibility modules. The flow:
 
 ```
-services.json   ── declarative configuration of the services
+services.json          ── service DEFINITIONS (committed): name, cmd, port, deps, ${ROOT}/${MVN} tokens
+launcher.local.json    ── per-machine PATHS (git-ignored): root, tool paths, per-service overrides
       │
 launcher.js     ── wires everything together and starts the server
-      ├── src/config.js          loads + validates services.json, substitutes ${ROOT}
+      ├── src/config.js          merges services.json + launcher.local.json, substitutes tokens
       ├── src/logger.js          per-service logs: ring buffer + file in logs/
       ├── src/health.js          healthchecks tcp / http / process
       ├── src/util.js            topoSort (dependency ordering) + waitFor
       ├── src/process-manager.js spawn/stop/restart, crashes, auto-restart, deps
-      └── src/server.js          HTTP server + REST API
-index.html      ── the UI (vanilla JS, no build, polls /api/status every 2s)
+      └── src/server.js          HTTP server + REST API (incl. config + folder browser)
+index.html      ── the UI (vanilla JS, no build, polls /api/status every 2s; Settings panel)
 ```
 
 ### Responsibilities
@@ -69,9 +70,31 @@ That separation is what lets us tell a **crash** apart from a normal **stop**.
 Process events (`close`) are the source of truth for `stopped`/`crashed`.
 `refresh()` (every 2s) only promotes `starting → running` and detects external services.
 
+## Configuration & sharing
+
+Config is split into two files so the repo can be shared (even made public) without
+leaking anyone's machine paths:
+
+- **`services.json`** (committed) — *what* the services are. Machine-agnostic: it uses
+  `${ROOT}` and `${MVN}` tokens instead of real paths. Safe to share.
+- **`launcher.local.json`** (git-ignored) — *where* they live on **this** machine: `root`,
+  tool paths (`vars`), and optional per-service folder overrides (`paths`). Never committed.
+  Auto-created on first run with defaults; `launcher.local.example.json` is the documented
+  template for teammates.
+
+Token resolution: `${ROOT}`/`${MVN}`/any `vars` key in `services.json` is substituted from
+the local config. A `paths[<id>]` entry overrides that service's folder outright (this is
+what the **Settings** folder browser writes). Resolution is recomputed live when config is
+saved, and applies the next time a service starts.
+
+**Settings UI:** the ⚙ panel lets you set `root`, each service's folder (via a server-backed
+folder browser — the Node backend lists real directories, since browsers can't expose native
+folder paths), and the Maven path. It saves to `launcher.local.json`.
+
 ## How to add / change a service
 
-**No code changes.** Edit `services.json` and restart the launcher. Fields:
+**No code changes.** Edit `services.json` and restart the launcher. Use `${ROOT}` in `cwd`
+(never absolute machine paths — those go in `launcher.local.json`). Fields:
 
 | field         | req. | description                                                        |
 |---------------|------|--------------------------------------------------------------------|
@@ -112,6 +135,9 @@ Process events (`close`) are the source of truth for `stopped`/`crashed`.
 | POST   | `/api/autorestart/:id` | toggle auto-restart (returns new value)  |
 | POST   | `/api/start-all`       | start everything respecting dependencies |
 | POST   | `/api/stop-all`        | stop everything in reverse order         |
+| GET    | `/api/config`          | read local config (root, vars, paths)    |
+| POST   | `/api/config`          | save local config + re-resolve paths live|
+| GET    | `/api/browse?path=`    | list drives / subfolders (folder browser)|
 
 ## Conventions
 

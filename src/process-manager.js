@@ -15,6 +15,15 @@ const { spawn, exec } = require('child_process')
 const health = require('./health')
 const { topoSort, waitFor } = require('./util')
 
+// With shell:true, Node joins cmd + args into one string for cmd.exe, but it does NOT
+// quote anything. So a path with spaces (e.g. "C:\Program Files\...\mvn.cmd") gets split
+// at the space and cmd.exe tries to run "C:\Program". Quote any token with whitespace
+// that isn't already quoted — same as typing & "C:\Program Files\..." in PowerShell.
+function shellQuote(s) {
+  if (typeof s !== 'string') return s
+  return /\s/.test(s) && !s.startsWith('"') ? `"${s}"` : s
+}
+
 class ProcessManager {
   constructor(services, logger) {
     this.services = services
@@ -62,7 +71,7 @@ class ProcessManager {
     // The child keeps running independently; we only hold a handle to it.
     let proc
     try {
-      proc = spawn(svc.cmd, svc.args, { cwd: svc.cwd, shell: true, windowsHide: true })
+      proc = spawn(shellQuote(svc.cmd), svc.args.map(shellQuote), { cwd: svc.cwd, shell: true, windowsHide: true })
     } catch (e) {
       this.statuses[id] = 'crashed'
       this.logger.add(id, `✖ Could not start: ${e.message}`)
