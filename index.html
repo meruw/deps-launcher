@@ -249,7 +249,51 @@
     .log-box::-webkit-scrollbar-thumb { background: #30363D; border-radius: 2px; }
 
     .log-line { white-space: pre-wrap; word-break: break-all; }
-    .log-line:last-child { color: #CDD9E5; }
+    .log-line.lvl-warn  { color: #E3B341; }
+    .log-line.lvl-error { color: #F85149; }
+
+    /* log toolbar (search / level filter / copy / clear) */
+    .log-tools {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: #0B0F14;
+      border-top: 1px solid var(--border);
+    }
+    .log-tools.visible { display: flex; }
+    .log-tools input.log-search {
+      flex: 1;
+      min-width: 0;
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+    .log-tools input.log-search:focus { outline: none; border-color: #3B82F6; }
+    .log-tools select.log-level {
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 4px 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .log-tools .log-btn {
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .log-tools .log-btn:hover { background: rgba(255,255,255,.12); color: var(--text); }
+    .log-empty { color: var(--muted); font-style: italic; }
 
     /* ── Footer ──────────────────────────────────────────────────── */
     footer {
@@ -471,6 +515,7 @@
 <script>
   let openLogs = new Set()
   let lastData  = []
+  let logFilters = {}   // id → { q: '', level: 'all' | 'warn' | 'error' }
 
   async function fetchStatus() {
     try {
@@ -499,12 +544,12 @@
         card.innerHTML = buildCard(svc)
         grid.appendChild(card)
 
-        // Toggle logs
+        // Toggle logs (reveals the box + the toolbar)
         card.querySelector('.log-toggle').addEventListener('click', () => {
-          const box = card.querySelector('.log-box')
-          const toggle = card.querySelector('.log-toggle')
-          const isOpen = box.classList.toggle('visible')
-          toggle.classList.toggle('open', isOpen)
+          const isOpen = !openLogs.has(svc.id)
+          card.querySelector('.log-box').classList.toggle('visible', isOpen)
+          card.querySelector('.log-tools').classList.toggle('visible', isOpen)
+          card.querySelector('.log-toggle').classList.toggle('open', isOpen)
           isOpen ? openLogs.add(svc.id) : openLogs.delete(svc.id)
         })
       } else {
@@ -518,6 +563,7 @@
     const active = svc.status === 'running' || svc.status === 'starting'
     const logOpen   = openLogs.has(svc.id) ? 'visible' : ''
     const toggleOpen = openLogs.has(svc.id) ? 'open' : ''
+    const f = getFilter(svc.id)
     const deps = (svc.deps && svc.deps.length)
       ? `<span class="deps-badge" title="Depends on">⛓ ${svc.deps.join(', ')}</span>` : ''
 
@@ -555,8 +601,19 @@
         <span>Logs</span>
         <span class="arrow">▾</span>
       </div>
+      <div class="log-tools ${logOpen}">
+        <input class="log-search" type="text" placeholder="Filter logs..."
+               value="${escAttr(f.q)}" oninput="onLogSearch('${svc.id}', this.value)" />
+        <select class="log-level" onchange="onLogLevel('${svc.id}', this.value)">
+          <option value="all"   ${f.level === 'all'   ? 'selected' : ''}>All</option>
+          <option value="warn"  ${f.level === 'warn'  ? 'selected' : ''}>Warn+</option>
+          <option value="error" ${f.level === 'error' ? 'selected' : ''}>Error</option>
+        </select>
+        <button class="log-btn" id="copy-${svc.id}" onclick="copyLogs('${svc.id}')" title="Copy visible logs">⧉ Copy</button>
+        <button class="log-btn" onclick="clearLogs('${svc.id}')" title="Clear logs">🗑 Clear</button>
+      </div>
       <div class="log-box ${logOpen}" id="log-${svc.id}">
-        ${svc.logs.map(l => `<div class="log-line">${escHtml(l)}</div>`).join('')}
+        ${logLinesHtml(svc)}
       </div>
     `
   }
@@ -584,7 +641,7 @@
       const logBox = card.querySelector(`#log-${svc.id}`)
       if (logBox) {
         const wasAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + 20
-        logBox.innerHTML = svc.logs.map(l => `<div class="log-line">${escHtml(l)}</div>`).join('')
+        logBox.innerHTML = logLinesHtml(svc)
         if (wasAtBottom) logBox.scrollTop = logBox.scrollHeight
       }
     }
@@ -592,6 +649,69 @@
 
   function escHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  }
+  function escAttr(str) {
+    return escHtml(str).replace(/"/g,'&quot;')
+  }
+
+  // ── Log filtering ────────────────────────────────────────────────────────
+  function getFilter(id) {
+    if (!logFilters[id]) logFilters[id] = { q: '', level: 'all' }
+    return logFilters[id]
+  }
+
+  // Classify a log line by content (heuristic, drives color + level filter).
+  function lineLevel(line) {
+    if (/error|exception|✖|fatal|failed/i.test(line)) return 'error'
+    if (/warn|⚠/i.test(line)) return 'warn'
+    return 'info'
+  }
+
+  function filteredLines(svc) {
+    const f = getFilter(svc.id)
+    const q = f.q.toLowerCase()
+    return svc.logs.filter(l => {
+      if (q && !l.toLowerCase().includes(q)) return false
+      const lvl = lineLevel(l)
+      if (f.level === 'warn'  && lvl === 'info')  return false // warn+ → hide plain info
+      if (f.level === 'error' && lvl !== 'error') return false
+      return true
+    })
+  }
+
+  function logLinesHtml(svc) {
+    const lines = filteredLines(svc)
+    if (!lines.length) return '<div class="log-line log-empty">(no matching lines)</div>'
+    return lines.map(l => {
+      const lvl = lineLevel(l)
+      const cls = lvl === 'error' ? 'lvl-error' : lvl === 'warn' ? 'lvl-warn' : ''
+      return `<div class="log-line ${cls}">${escHtml(l)}</div>`
+    }).join('')
+  }
+
+  function refreshLogBox(id) {
+    const svc = lastData.find(s => s.id === id)
+    const box = document.getElementById(`log-${id}`)
+    if (svc && box) box.innerHTML = logLinesHtml(svc)
+  }
+
+  function onLogSearch(id, val) { getFilter(id).q = val; refreshLogBox(id) }
+  function onLogLevel(id, val)  { getFilter(id).level = val; refreshLogBox(id) }
+
+  async function clearLogs(id) {
+    await fetch(`/api/logs/${id}/clear`, { method: 'POST' })
+    const box = document.getElementById(`log-${id}`)
+    if (box) box.innerHTML = ''
+  }
+
+  async function copyLogs(id) {
+    const svc = lastData.find(s => s.id === id)
+    if (!svc) return
+    try {
+      await navigator.clipboard.writeText(filteredLines(svc).join('\n'))
+      const btn = document.getElementById(`copy-${id}`)
+      if (btn) { const t = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => { btn.textContent = t }, 1200) }
+    } catch (_) {}
   }
 
   async function start(id) {

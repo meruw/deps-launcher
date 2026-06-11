@@ -83,6 +83,15 @@ function createServer({ pm, config, logger, configModule }) {
       return json(200, pm.snapshot())
     }
 
+    // ── Clear a service's in-memory logs (the file history is kept) ──
+    const clearMatch = pathname.match(/^\/api\/logs\/(.+)\/clear$/)
+    if (req.method === 'POST' && clearMatch) {
+      const id = decodeURIComponent(clearMatch[1])
+      if (!pm.byId[id]) return json(404, { error: `unknown service "${id}"` })
+      logger.clear(id)
+      return ok()
+    }
+
     // ── Full in-memory logs for a service ──
     if (req.method === 'GET' && pathname.startsWith('/api/logs/')) {
       const id = decodeURIComponent(pathname.split('/').pop())

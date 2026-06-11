@@ -180,6 +180,7 @@ folder paths), and the Maven path. It saves to `launcher.local.json`.
 | GET    | `/`                    | serves the UI                            |
 | GET    | `/api/status`          | snapshot of all services + logs          |
 | GET    | `/api/logs/:id`        | last 200 in-memory lines for an id       |
+| POST   | `/api/logs/:id/clear`  | clear a service's in-memory logs (file kept) |
 | POST   | `/api/start/:id`       | start a service                          |
 | POST   | `/api/stop/:id`        | stop a service                           |
 | POST   | `/api/restart/:id`     | restart a service                        |
@@ -223,6 +224,8 @@ the bind/CORS/Origin checks here.
 - `spawn(..., { shell: true })` is needed to resolve `.cmd`/`.bat` and PATH commands on
   Windows, but it creates an intermediate shell process — that's why stop uses `taskkill /T`.
 - In-memory logs are capped at 200 lines per service; the full history lives in
-  `logs/<id>.log` (appended across sessions).
+  `logs/<id>.log` (appended across sessions). The UI's **Clear** button only wipes the
+  in-memory buffer (`logger.clear`), not the file. The log toolbar's level filter and
+  search are purely client-side over those in-memory lines.
 - The `tcp` healthcheck reports `running` even if another terminal brought the service up
   (not our process). That's intentional: it reflects the reality of the port.
