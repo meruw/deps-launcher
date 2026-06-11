@@ -49,9 +49,19 @@ function ensureLocal() {
       DOCKER_DESKTOP: 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe' // to auto-launch the engine
     },
     paths: {},                 // per-service folder overrides (set from the Settings UI)
+    autoRestart: {},           // per-service auto-restart prefs (set from the UI toggle)
     closeDockerOnStop: false   // also close Docker Desktop when stopping (off by default)
   })
   return true
+}
+
+// Persist a single service's auto-restart preference into launcher.local.json,
+// so the UI toggle survives launcher restarts (without touching shared services.json).
+function setLocalAutoRestart(id, value) {
+  const local = loadLocal() || {}
+  local.autoRestart = local.autoRestart || {}
+  local.autoRestart[id] = !!value
+  saveLocal(local)
 }
 
 // ── Token substitution ─────────────────────────────────────────────────────────
@@ -142,6 +152,7 @@ function load() {
 
     return {
       id: s.id,
+      group: s.group || 'other',
       name: s.name || s.id,
       desc: s.desc || '',
       port: s.port || null,
@@ -173,6 +184,14 @@ function load() {
 
   applyLocal(services, local)
 
+  // Per-machine auto-restart overrides win over the initial value in services.json.
+  const arOverrides = (local && local.autoRestart) || {}
+  for (const svc of services) {
+    if (Object.prototype.hasOwnProperty.call(arOverrides, svc.id)) {
+      svc.autoRestart = !!arOverrides[svc.id]
+    }
+  }
+
   return {
     uiPort: cfg.uiPort || 9999,
     openBrowser: cfg.openBrowser !== false,
@@ -182,4 +201,4 @@ function load() {
   }
 }
 
-module.exports = { load, loadLocal, saveLocal, applyLocal, CONFIG_PATH, LOCAL_PATH }
+module.exports = { load, loadLocal, saveLocal, applyLocal, setLocalAutoRestart, CONFIG_PATH, LOCAL_PATH }

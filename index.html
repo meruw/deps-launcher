@@ -46,7 +46,12 @@
       font-size: 18px;
     }
 
-    .brand-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    /* Monospace at rest too: every glyph is the same width, so the title's size never
+       changes between the decode animation and the final text — no end-of-animation jump. */
+    .brand-title {
+      font-size: 18px; font-weight: 700; letter-spacing: 0; white-space: pre;
+      font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    }
     .brand-sub   { font-size: 12px; color: var(--muted); }
 
     .header-actions { display: flex; gap: 10px; }
@@ -92,7 +97,27 @@
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
       gap: 16px;
-      padding: 24px 32px;
+      padding: 8px 32px 24px;
+    }
+
+    /* ── Group section ───────────────────────────────────────────── */
+    .group { display: none; }            /* shown by JS when it has cards */
+    .group-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 22px 32px 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .group-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
     }
 
     /* ── Service Card ────────────────────────────────────────────── */
@@ -407,7 +432,7 @@
   <div class="brand">
     <div class="brand-icon">⚡</div>
     <div>
-      <div class="brand-title">FastBank Launcher</div>
+      <div class="brand-title" id="brand-title">FastBank Launcher</div>
       <div class="brand-sub">Local dev environment</div>
     </div>
   </div>
@@ -425,7 +450,7 @@
   <span><span class="dot-sm" style="background:#F85149"></span> <span id="count-crashed">0</span> crashed</span>
 </div>
 
-<div class="grid" id="grid"></div>
+<div id="groups"></div>
 
 <!-- ── Settings modal ── -->
 <div class="overlay" id="settings-overlay">
@@ -517,6 +542,65 @@
   let lastData  = []
   let logFilters = {}   // id → { q: '', level: 'all' | 'warn' | 'error' }
 
+  // Service layer groups (matches the "group" field in services.json).
+  const GROUPS = [
+    { key: 'infra',    label: 'Infrastructure' },
+    { key: 'backend',  label: 'Backend' },
+    { key: 'frontend', label: 'Frontend' },
+    { key: 'other',    label: 'Other' }
+  ]
+
+  // Build the group sections once (each starts hidden until it gets a card).
+  function ensureGroups() {
+    const container = document.getElementById('groups')
+    GROUPS.forEach(g => {
+      if (document.getElementById(`group-${g.key}`)) return
+      const sec = document.createElement('section')
+      sec.className = 'group'
+      sec.id = `group-${g.key}`
+      sec.innerHTML = `<div class="group-title">${g.label}</div><div class="grid" id="grid-${g.key}"></div>`
+      container.appendChild(sec)
+    })
+  }
+
+  // ── Decode effect for the launcher name ──────────────────────────────────
+  // A "triple sweep": three bands chase each other right → left across the title.
+  // Reading left→right at any moment: (not-yet-reached) ░▒▓█ blocks → obfuscated
+  // random chars → the real letters forming behind them. Pure vanilla JS, no deps.
+  function scrambleTitle(el, finalText) {
+    const BLOCKS = ['░', '▒', '▓', '█']
+    const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789#$%&?@*/<>'
+    const randChar = () => CHARS[Math.floor(Math.random() * CHARS.length)]
+    const n = finalText.length
+    const WB = 4           // block band width (the leading "comet head")
+    const WO = 6           // obfuscated band width (chases the blocks)
+    const SPEED = 1     // leading edge advances half a char per frame (overall speed)
+    const lastFrame = Math.ceil((n - 1 + WB + WO) / SPEED) + 1
+
+    // No width reservation needed: the title is monospace and always renders exactly
+    // `n` cells (blocks/scramble/letters/spaces), so its width is constant throughout.
+    const glyphs = new Array(n).fill('')
+    const scramble = i => { if (frame % 2 === 0 || !glyphs[i]) glyphs[i] = randChar(); return glyphs[i] }
+    let frame = 0
+    const tick = () => {
+      const front = Math.floor((n - 1) - frame * SPEED)  // leading edge of the block band
+      let out = ''
+      for (let i = 0; i < n; i++) {
+        const ch = finalText[i]
+        const d = i - front                              // how far this char is behind the edge
+        if (d < 0) out += ' '                            // not reached yet
+        else if (d < WB) out += BLOCKS[Math.max(0, WB - 1 - d)]   // blocks: █ head → ░ tail
+        else if (d < WB + WO) out += ch === ' ' ? ' ' : scramble(i)  // obfuscated tail (chasing)
+        else out += ch                                   // letters formed (behind the obfuscation)
+      }
+      el.textContent = out
+      if (frame >= lastFrame) { el.textContent = finalText; return }
+      frame++
+      setTimeout(tick, 42)
+    }
+    tick()
+  }
+
   async function fetchStatus() {
     try {
       const r = await fetch('/api/status')
@@ -532,7 +616,7 @@
     document.getElementById('count-stopped').textContent  = services.filter(s => s.status === 'stopped').length
     document.getElementById('count-crashed').textContent  = services.filter(s => s.status === 'crashed').length
 
-    const grid = document.getElementById('grid')
+    ensureGroups()
 
     services.forEach(svc => {
       let card = document.getElementById(`card-${svc.id}`)
@@ -542,7 +626,11 @@
         card.className = 'card'
         card.id = `card-${svc.id}`
         card.innerHTML = buildCard(svc)
-        grid.appendChild(card)
+
+        // Place the card in its layer group, and reveal that group's section.
+        const key = GROUPS.some(g => g.key === svc.group) ? svc.group : 'other'
+        document.getElementById(`grid-${key}`).appendChild(card)
+        document.getElementById(`group-${key}`).style.display = 'block'
 
         // Toggle logs (reveals the box + the toolbar)
         card.querySelector('.log-toggle').addEventListener('click', () => {
@@ -870,6 +958,13 @@
 
   // escape for use inside a single-quoted inline onclick attribute
   function esc(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'") }
+
+  // Decode the launcher name on load (click it to replay).
+  const brandTitle = document.getElementById('brand-title')
+  scrambleTitle(brandTitle, 'FastBank Launcher')
+  brandTitle.style.cursor = 'pointer'
+  brandTitle.title = 'Replay'
+  brandTitle.addEventListener('click', () => scrambleTitle(brandTitle, 'FastBank Launcher'))
 
   // Poll every 2s
   fetchStatus()

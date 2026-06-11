@@ -11,6 +11,11 @@
     "DOCKER_DESKTOP": "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"
   },
 
+  "autoRestart": {
+    "_comment": "Per-service auto-restart prefs, written by the UI toggle. Overrides the initial value in services.json.",
+    "azurite": true
+  },
+
   "paths": {
     "_comment": "Optional per-service folder overrides (absolute paths). Anything here wins over the ${ROOT}-based cwd in services.json. The Settings folder browser writes here.",
     "fastbank": "D:\\repos\\FastBank"

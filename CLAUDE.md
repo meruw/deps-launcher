@@ -150,6 +150,7 @@ folder paths), and the Maven path. It saves to `launcher.local.json`.
 | `id`          | yes  | unique identifier (used in the API and log file names)             |
 | `cmd`         | yes  | executable to run                                                  |
 | `name`/`desc` | no   | text for the UI                                                    |
+| `group`       | no   | layer section in the UI: `infra` / `backend` / `frontend` (default `other`) |
 | `port`        | no*  | service port (required if `health.type` = `tcp`)                   |
 | `color`       | no   | accent color on the card                                           |
 | `cwd`         | no   | working directory; supports `${ROOT}`                              |
@@ -159,7 +160,7 @@ folder paths), and the Maven path. It saves to `launcher.local.json`.
 | `depTimeout`  | no   | ms to wait for dependencies (default 60000)                        |
 | `stop`        | no   | custom stop command (token-substituted). Used instead of `taskkill` for services we don't own as a process — e.g. `docker stop ${DB_CONTAINER}` |
 | `ensure`      | no   | prerequisite to check/launch before spawning (see the `ensure` block below) |
-| `autoRestart` | no   | **initial** value of the toggle; retries on crash (backoff, up to `maxRestarts`). Can be turned on/off live from the UI; the runtime change is not persisted to the JSON |
+| `autoRestart` | no   | **initial** value of the toggle; retries on crash (backoff, up to `maxRestarts`). Can be toggled live from the UI; the change is persisted **per-machine** to `launcher.local.json` (`autoRestart` map), never to the shared `services.json` |
 | `maxRestarts` | no   | cap on auto-restarts (default 3)                                   |
 
 `${ROOT}` is substituted with the `root` field in `services.json` (or the `FASTBANK_ROOT` env var).

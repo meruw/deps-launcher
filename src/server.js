@@ -116,6 +116,7 @@ function createServer({ pm, config, logger, configModule }) {
       const id = decodeURIComponent(toggle[1])
       if (!pm.byId[id]) return json(404, { error: `unknown service "${id}"` })
       const value = pm.setAutoRestart(id) // no argument = toggle
+      configModule.setLocalAutoRestart(id, value) // persist to launcher.local.json
       return json(200, { id, autoRestart: value })
     }
 

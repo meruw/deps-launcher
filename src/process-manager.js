@@ -277,6 +277,7 @@ class ProcessManager {
   snapshot() {
     return this.services.map(s => ({
       id: s.id,
+      group: s.group,
       name: s.name,
       desc: s.desc,
       port: s.port,
