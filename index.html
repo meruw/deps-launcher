@@ -574,7 +574,7 @@
     const n = finalText.length
     const WB = 4           // block band width (the leading "comet head")
     const WO = 6           // obfuscated band width (chases the blocks)
-    const SPEED = 1     // leading edge advances half a char per frame (overall speed)
+    const SPEED = 0.9     // leading edge advances half a char per frame (overall speed)
     const lastFrame = Math.ceil((n - 1 + WB + WO) / SPEED) + 1
 
     // No width reservation needed: the title is monospace and always renders exactly
