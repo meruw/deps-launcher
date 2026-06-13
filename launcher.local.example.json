@@ -3,12 +3,16 @@
 
   "root": "C:\\Users\\YOUR_USER",
 
+  "_comment_uiPort": "Optional: override the launcher's own panel port (default 9999). Restart to apply.",
+  "uiPort": 9999,
+
   "vars": {
     "_comment": "Values for ${NAME} tokens in services.json. Use 'mvn' if Maven is on your PATH.",
     "MVN": "C:\\Program Files\\Apache\\Maven\\apache-maven-3.9.15\\bin\\mvn.cmd",
     "PROFILE": "dev-local-postgres",
     "DB_CONTAINER": "fastbank-postgres",
-    "DOCKER_DESKTOP": "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"
+    "DOCKER_DESKTOP": "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe",
+    "CORS_ORIGIN": "http://localhost:4200"
   },
 
   "autoRestart": {

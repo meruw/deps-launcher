@@ -92,6 +92,10 @@ Token resolution: any `${NAME}` in `services.json` is substituted from the local
 | `${PROFILE}`     | `dev-local-postgres` | Spring Boot profile for FastBank          |
 | `${DB_CONTAINER}`| `fastbank-postgres`  | Docker container name for the `postgres` service |
 | `${DOCKER_DESKTOP}`| `...\Docker Desktop.exe` | launched to start the Docker engine when it's off |
+| `${CORS_ORIGIN}` | `http://localhost:4200` | origin passed to the Azure Functions' `--cors` flag |
+
+The launcher's own panel port (`uiPort`, default 9999) can also be overridden per-machine in
+`launcher.local.json` (or from Settings) — it takes effect on the next launcher restart.
 
 A `paths[<id>]` entry overrides that service's folder outright (this is what the **Settings**
 folder browser writes). Resolution is recomputed live when config is saved, and applies the
@@ -182,6 +186,7 @@ folder paths), and the Maven path. It saves to `launcher.local.json`.
 | GET    | `/api/status`          | snapshot of all services + logs          |
 | GET    | `/api/logs/:id`        | last 200 in-memory lines for an id       |
 | POST   | `/api/logs/:id/clear`  | clear a service's in-memory logs (file kept) |
+| GET    | `/api/logs/:id/download` | download the full `logs/<id>.log` file       |
 | POST   | `/api/start/:id`       | start a service                          |
 | POST   | `/api/stop/:id`        | stop a service                           |
 | POST   | `/api/restart/:id`     | restart a service                        |

@@ -92,6 +92,23 @@ function createServer({ pm, config, logger, configModule }) {
       return ok()
     }
 
+    // ── Download a service's full log file (logs/<id>.log) ──
+    const dl = pathname.match(/^\/api\/logs\/(.+)\/download$/)
+    if (req.method === 'GET' && dl) {
+      const id = decodeURIComponent(dl[1])
+      if (!pm.byId[id]) return json(404, { error: `unknown service "${id}"` })
+      const stream = fs.createReadStream(logger.logFilePath(id))
+      stream.on('open', () => {
+        res.writeHead(200, {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${id}.log"`
+        })
+        stream.pipe(res)
+      })
+      stream.on('error', () => { res.writeHead(404); res.end() })
+      return
+    }
+
     // ── Full in-memory logs for a service ──
     if (req.method === 'GET' && pathname.startsWith('/api/logs/')) {
       const id = decodeURIComponent(pathname.split('/').pop())
@@ -124,27 +141,31 @@ function createServer({ pm, config, logger, configModule }) {
     if (req.method === 'POST' && pathname === '/api/start-all') { pm.startAll().catch(() => {}); return ok() }
     if (req.method === 'POST' && pathname === '/api/stop-all')  { pm.stopAll();  return ok() }
 
-    // ── Local config: read current per-machine paths ──
+    // ── Local config: read current per-machine settings ──
     if (req.method === 'GET' && pathname === '/api/config') {
       const local = configModule.loadLocal() || {}
       return json(200, {
         root: local.root || '',
         vars: local.vars || {},
         paths: local.paths || {},
-        closeDockerOnStop: !!local.closeDockerOnStop
+        closeDockerOnStop: !!local.closeDockerOnStop,
+        uiPort: config.uiPort // the effective port the launcher is running on
       })
     }
 
-    // ── Local config: save paths and re-resolve live (applies on next start) ──
+    // ── Local config: save settings and re-resolve live (applies on next start) ──
     if (req.method === 'POST' && pathname === '/api/config') {
       let body
       try { body = await readBody(req) } catch (_) { return json(400, { error: 'invalid JSON body' }) }
+      // Merge over the existing file so fields Settings doesn't manage (e.g. autoRestart) survive.
       const local = {
+        ...(configModule.loadLocal() || {}),
         root: body.root || '',
         vars: body.vars || {},
         paths: body.paths || {},
         closeDockerOnStop: !!body.closeDockerOnStop
       }
+      if (body.uiPort) local.uiPort = Number(body.uiPort) // takes effect on next launcher restart
       configModule.saveLocal(local)
       configModule.applyLocal(pm.services, local) // mutates service cwd/cmd/args in place
       pm.flags.closeDockerOnStop = local.closeDockerOnStop // behaviour flag applies immediately

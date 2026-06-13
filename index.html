@@ -177,6 +177,10 @@
       border-radius: 6px;
       color: var(--muted);
     }
+    .port-badge.openable { cursor: pointer; }
+    .port-badge.openable:hover { background: rgba(56,139,253,.25); color: #58A6FF; }
+
+    .uptime { font-size: 11px; color: #3FB950; margin-left: 6px; font-variant-numeric: tabular-nums; }
 
     .btn-sm {
       padding: 5px 14px;
@@ -496,6 +500,21 @@
           <input type="text" id="set-docker" placeholder="C:\Program Files\Docker\Docker\Docker Desktop.exe" />
         </div>
       </div>
+      <div class="set-row">
+        <label>Functions CORS origin <code>(${CORS_ORIGIN})</code> — passed to the Azure Functions' <code>--cors</code></label>
+        <div class="path-input">
+          <input type="text" id="set-cors" placeholder="http://localhost:4200" />
+        </div>
+      </div>
+
+      <div class="set-section">Launcher</div>
+      <div class="set-row">
+        <label>Panel port — the launcher's own port (<strong>restart the launcher to apply</strong>)</label>
+        <div class="path-input">
+          <input type="text" id="set-uiport" placeholder="9999" />
+        </div>
+      </div>
+
       <div class="set-row" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <label style="margin:0;">Close Docker Desktop when stopping Postgres
           <span style="display:block; font-size:11px; color:var(--muted); text-transform:none; letter-spacing:0;">otherwise only the container is stopped, the engine stays up</span>
@@ -661,12 +680,12 @@
           <div class="status-led ${ledClass}" id="led-${svc.id}"></div>
           <div>
             <div class="svc-name">${svc.name}</div>
-            <div class="svc-desc">${svc.desc}</div>
+            <div class="svc-desc">${svc.desc}<span class="uptime" id="uptime-${svc.id}"></span></div>
           </div>
         </div>
         <div class="card-actions">
           ${deps}
-          ${svc.port ? `<span class="port-badge">:${svc.port}</span>` : ''}
+          ${svc.port ? `<span class="port-badge" id="port-${svc.id}" onclick="openSvc('${svc.id}')" title="Open http://localhost:${svc.port}">:${svc.port}</span>` : ''}
           <button class="btn-sm btn-start ${active ? 'btn-disabled' : ''}"
                   id="btn-start-${svc.id}"
                   onclick="start('${svc.id}')">Start</button>
@@ -698,6 +717,7 @@
           <option value="error" ${f.level === 'error' ? 'selected' : ''}>Error</option>
         </select>
         <button class="log-btn" id="copy-${svc.id}" onclick="copyLogs('${svc.id}')" title="Copy visible logs">⧉ Copy</button>
+        <button class="log-btn" onclick="downloadLogs('${svc.id}')" title="Download full log file">⬇ Download</button>
         <button class="log-btn" onclick="clearLogs('${svc.id}')" title="Clear logs">🗑 Clear</button>
       </div>
       <div class="log-box ${logOpen}" id="log-${svc.id}">
@@ -723,6 +743,15 @@
     // Auto-restart toggle (reflects the server state)
     const auto = card.querySelector(`#auto-${svc.id}`)
     if (auto) auto.classList.toggle('on', !!svc.autoRestart)
+
+    // Port badge: clickable to open when running
+    const port = card.querySelector(`#port-${svc.id}`)
+    if (port) port.classList.toggle('openable', svc.status === 'running')
+
+    // Uptime (shown only while running)
+    const up = card.querySelector(`#uptime-${svc.id}`)
+    if (up) up.textContent = (svc.status === 'running' && svc.runningSince)
+      ? ' · up ' + fmtUptime(Date.now() - svc.runningSince) : ''
 
     // Logs (only if open)
     if (openLogs.has(svc.id)) {
@@ -792,6 +821,33 @@
     if (box) box.innerHTML = ''
   }
 
+  // Download the full log file (logs/<id>.log) via the server endpoint.
+  function downloadLogs(id) {
+    const a = document.createElement('a')
+    a.href = `/api/logs/${encodeURIComponent(id)}/download`
+    a.download = `${id}.log`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  // Open a running service in the browser (http://localhost:<port>).
+  function openSvc(id) {
+    const svc = lastData.find(s => s.id === id)
+    if (svc && svc.port && svc.status === 'running') {
+      window.open(`http://localhost:${svc.port}`, '_blank')
+    }
+  }
+
+  // Format an uptime duration (ms) → "1h 3m" / "4m 12s" / "9s".
+  function fmtUptime(ms) {
+    const s = Math.floor(ms / 1000)
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+    if (h) return `${h}h ${m}m`
+    if (m) return `${m}m ${sec}s`
+    return `${sec}s`
+  }
+
   async function copyLogs(id) {
     const svc = lastData.find(s => s.id === id)
     if (!svc) return
@@ -843,6 +899,8 @@
     document.getElementById('set-profile').value = v.PROFILE || ''
     document.getElementById('set-container').value = v.DB_CONTAINER || ''
     document.getElementById('set-docker').value = v.DOCKER_DESKTOP || ''
+    document.getElementById('set-cors').value = v.CORS_ORIGIN || ''
+    document.getElementById('set-uiport').value = cfg.uiPort || ''
     document.getElementById('set-closedocker').classList.toggle('on', !!cfg.closeDockerOnStop)
 
     // One path row per service (uses lastData for names/ids).
@@ -882,17 +940,20 @@
     const profile   = document.getElementById('set-profile').value.trim()
     const container = document.getElementById('set-container').value.trim()
     const docker    = document.getElementById('set-docker').value.trim()
+    const cors      = document.getElementById('set-cors').value.trim()
     if (mvn) vars.MVN = mvn
     if (profile) vars.PROFILE = profile
     if (container) vars.DB_CONTAINER = container
     if (docker) vars.DOCKER_DESKTOP = docker
+    if (cors) vars.CORS_ORIGIN = cors
 
     const closeDockerOnStop = document.getElementById('set-closedocker').classList.contains('on')
+    const uiPort = parseInt(document.getElementById('set-uiport').value.trim(), 10) || undefined
 
     await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ root, vars, paths, closeDockerOnStop })
+      body: JSON.stringify({ root, vars, paths, closeDockerOnStop, uiPort })
     })
     closeSettings()
   }

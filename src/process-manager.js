@@ -48,6 +48,7 @@ class ProcessManager {
     this.intent = {}       // id → 'up' | 'down'
     this.restartCounts = {}
     this.autoRestart = {}  // id → bool (mutable at runtime via the UI toggle)
+    this.runningSince = {} // id → epoch ms when it became running (for uptime), or null
     this.flags = { closeDockerOnStop: false } // global behaviour flags (set from config)
 
     services.forEach(s => {
@@ -55,6 +56,7 @@ class ProcessManager {
       this.intent[s.id] = 'down'
       this.restartCounts[s.id] = 0
       this.autoRestart[s.id] = s.autoRestart // initial value from services.json
+      this.runningSince[s.id] = null
     })
   }
 
@@ -272,6 +274,16 @@ class ProcessManager {
         this.statuses[id] = 'stopped'
       }
     }))
+
+    // Reconcile uptime clocks: stamp the moment a service becomes running, clear it
+    // when it leaves running. Centralized here so it covers every transition.
+    for (const svc of this.services) {
+      if (this.statuses[svc.id] === 'running') {
+        if (!this.runningSince[svc.id]) this.runningSince[svc.id] = Date.now()
+      } else {
+        this.runningSince[svc.id] = null
+      }
+    }
   }
 
   snapshot() {
@@ -285,6 +297,7 @@ class ProcessManager {
       deps: s.dependsOn,
       autoRestart: this.autoRestart[s.id],
       status: this.statuses[s.id],
+      runningSince: this.runningSince[s.id] || null,
       logs: this.logger.tail(s.id, 40)
     }))
   }

@@ -46,7 +46,8 @@ function ensureLocal() {
       MVN: 'mvn',                        // Maven; assume on PATH unless pointed at mvn.cmd
       PROFILE: 'dev-local-postgres',     // Spring Boot profile for FastBank
       DB_CONTAINER: 'fastbank-postgres', // Docker container name for the Postgres service
-      DOCKER_DESKTOP: 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe' // to auto-launch the engine
+      DOCKER_DESKTOP: 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe', // to auto-launch the engine
+      CORS_ORIGIN: 'http://localhost:4200' // origin passed to the Azure Functions' --cors flag
     },
     paths: {},                 // per-service folder overrides (set from the Settings UI)
     autoRestart: {},           // per-service auto-restart prefs (set from the UI toggle)
@@ -71,7 +72,8 @@ function buildTokens(local) {
     MVN: 'mvn',
     PROFILE: 'dev-local-postgres',
     DB_CONTAINER: 'fastbank-postgres',
-    DOCKER_DESKTOP: 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe'
+    DOCKER_DESKTOP: 'C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe',
+    CORS_ORIGIN: 'http://localhost:4200'
   }
   if (local) {
     if (local.root) tokens.ROOT = local.root
@@ -193,7 +195,7 @@ function load() {
   }
 
   return {
-    uiPort: cfg.uiPort || 9999,
+    uiPort: (local && local.uiPort) || cfg.uiPort || 9999, // per-machine override wins
     openBrowser: cfg.openBrowser !== false,
     services,
     flags: { closeDockerOnStop: !!(local && local.closeDockerOnStop) },
