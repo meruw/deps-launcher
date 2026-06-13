@@ -97,6 +97,13 @@ Token resolution: any `${NAME}` in `services.json` is substituted from the local
 The launcher's own panel port (`uiPort`, default 9999) can also be overridden per-machine in
 `launcher.local.json` (or from Settings) — it takes effect on the next launcher restart.
 
+**Per-service ports:** a service whose command uses the special token `${PORT}` (e.g. the Azure
+Functions' `--port ${PORT}`) is **port-configurable**: its effective port comes from the
+`ports` map in `launcher.local.json` (Settings shows a port field for it), and that single value
+feeds both the spawn arg **and** the TCP health check. Services without `${PORT}` keep a fixed
+port (backend 8080, WebApp 4200, Postgres 5432 — those are coupled to other config and shouldn't
+move). `snapshot()` exposes `portConfigurable` so the UI knows when to show the field.
+
 A `paths[<id>]` entry overrides that service's folder outright (this is what the **Settings**
 folder browser writes). Resolution is recomputed live when config is saved, and applies the
 next time a service starts.

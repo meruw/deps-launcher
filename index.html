@@ -907,12 +907,15 @@
     const wrap = document.getElementById('set-services')
     wrap.innerHTML = lastData.map(svc => `
       <div class="set-row">
-        <label>${svc.name}</label>
+        <label>${svc.name}${svc.portConfigurable ? '' : (svc.port ? ` <code>:${svc.port}</code>` : '')}</label>
         <div class="path-input">
           <input type="text" id="set-path-${svc.id}"
                  value="${(cfg.paths && cfg.paths[svc.id]) || ''}"
                  placeholder="(empty → default folder under \${ROOT})" />
           <button class="pick-btn" onclick="pickFolder('set-path-${svc.id}')">📁</button>
+          ${svc.portConfigurable
+            ? `<input type="text" id="set-port-${svc.id}" value="${svc.port || ''}" title="Port" placeholder="port" style="width:72px;flex:0 0 auto;text-align:center" />`
+            : ''}
         </div>
       </div>
     `).join('')
@@ -929,9 +932,14 @@
 
     // Only keep services with a non-empty override; empty = fall back to ${ROOT}.
     const paths = {}
+    const ports = {}
     lastData.forEach(svc => {
       const v = document.getElementById(`set-path-${svc.id}`).value.trim()
       if (v) paths[svc.id] = v
+      if (svc.portConfigurable) {
+        const p = parseInt(document.getElementById(`set-port-${svc.id}`).value.trim(), 10)
+        if (p) ports[svc.id] = p
+      }
     })
 
     // Only keep non-empty vars; empty ones fall back to the launcher's defaults.
@@ -953,7 +961,7 @@
     await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ root, vars, paths, closeDockerOnStop, uiPort })
+      body: JSON.stringify({ root, vars, paths, ports, closeDockerOnStop, uiPort })
     })
     closeSettings()
   }

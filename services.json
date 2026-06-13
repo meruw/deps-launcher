@@ -62,7 +62,7 @@
       "color": "#8B5CF6",
       "cwd": "${ROOT}\\FastBank-Feature_Flags\\FeatureFlag",
       "cmd": "func",
-      "args": ["start", "--port", "7071", "--cors", "${CORS_ORIGIN}"],
+      "args": ["start", "--port", "${PORT}", "--cors", "${CORS_ORIGIN}"],
       "health": { "type": "tcp" },
       "dependsOn": ["azurite"],
       "autoRestart": false
@@ -76,7 +76,7 @@
       "color": "#10B981",
       "cwd": "${ROOT}\\FastBank-Company",
       "cmd": "powershell",
-      "args": ["-NoProfile", "-Command", "& '.\\venv\\Scripts\\Activate.ps1'; func start --port 7072 --cors ${CORS_ORIGIN}"],
+      "args": ["-NoProfile", "-Command", "& '.\\venv\\Scripts\\Activate.ps1'; func start --port ${PORT} --cors ${CORS_ORIGIN}"],
       "health": { "type": "tcp" },
       "dependsOn": ["azurite"],
       "autoRestart": false
@@ -90,7 +90,7 @@
       "color": "#EF4444",
       "cwd": "${ROOT}\\FastBank-BankRecon\\FastBankReconProcess",
       "cmd": "func",
-      "args": ["start", "--port", "7073", "--cors", "${CORS_ORIGIN}"],
+      "args": ["start", "--port", "${PORT}", "--cors", "${CORS_ORIGIN}"],
       "health": { "type": "tcp" },
       "dependsOn": ["azurite"],
       "autoRestart": false

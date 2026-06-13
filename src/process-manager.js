@@ -295,6 +295,7 @@ class ProcessManager {
       port: s.port,
       color: s.color,
       deps: s.dependsOn,
+      portConfigurable: s.portConfigurable,
       autoRestart: this.autoRestart[s.id],
       status: this.statuses[s.id],
       runningSince: this.runningSince[s.id] || null,

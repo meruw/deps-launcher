@@ -23,5 +23,12 @@
   "paths": {
     "_comment": "Optional per-service folder overrides (absolute paths). Anything here wins over the ${ROOT}-based cwd in services.json. The Settings folder browser writes here.",
     "fastbank": "D:\\repos\\FastBank"
+  },
+
+  "ports": {
+    "_comment": "Optional per-service port overrides. Only affects services whose command uses ${PORT} (the Azure Functions). Sets both the spawn --port arg and the health check.",
+    "featureflags": 7071,
+    "company": 7072,
+    "bankrecon": 7073
   }
 }

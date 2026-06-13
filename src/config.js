@@ -91,10 +91,15 @@ function subst(value, tokens) {
 // per-service path overrides. Mutates the service objects IN PLACE so references held
 // elsewhere (e.g. the ProcessManager) keep pointing at the live, updated values.
 function applyLocal(services, local) {
-  const tokens = buildTokens(local)
-  const overrides = (local && local.paths) || {}
+  const base = buildTokens(local)
+  const pathOverrides = (local && local.paths) || {}
+  const portOverrides = (local && local.ports) || {}
   for (const s of services) {
-    const override = overrides[s.id]
+    // Effective port: per-machine override wins over the services.json default.
+    s.port = portOverrides[s.id] != null ? Number(portOverrides[s.id]) : s._rawPort
+    // Per-service token map adds ${PORT} (this service's effective port) to the globals.
+    const tokens = { ...base, PORT: s.port != null ? String(s.port) : '' }
+    const override = pathOverrides[s.id]
     s.cwd = override ? subst(override, tokens) : (subst(s._rawCwd, tokens) || tokens.ROOT)
     s.cmd = subst(s._rawCmd, tokens)
     s.args = s._rawArgs.map(a => subst(a, tokens))
@@ -164,6 +169,9 @@ function load() {
       autoRestart: s.autoRestart === true,
       maxRestarts: s.maxRestarts != null ? s.maxRestarts : 3,
       health: { type: health.type, path: health.path || '/', url: null, _rawUrl: health.url || null },
+      // Port is configurable only when the service actually consumes ${PORT} in its command.
+      portConfigurable: /\$\{PORT\}/.test([s.cmd, ...(s.args || [])].join(' ')),
+      _rawPort: s.port || null,
       // Raw (unsubstituted) templates, kept so paths can be re-resolved at runtime.
       _rawCwd: s.cwd || '${ROOT}',
       _rawCmd: s.cmd,

@@ -148,6 +148,7 @@ function createServer({ pm, config, logger, configModule }) {
         root: local.root || '',
         vars: local.vars || {},
         paths: local.paths || {},
+        ports: local.ports || {},
         closeDockerOnStop: !!local.closeDockerOnStop,
         uiPort: config.uiPort // the effective port the launcher is running on
       })
@@ -163,6 +164,7 @@ function createServer({ pm, config, logger, configModule }) {
         root: body.root || '',
         vars: body.vars || {},
         paths: body.paths || {},
+        ports: body.ports || {},
         closeDockerOnStop: !!body.closeDockerOnStop
       }
       if (body.uiPort) local.uiPort = Number(body.uiPort) // takes effect on next launcher restart
