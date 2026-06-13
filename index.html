@@ -376,7 +376,11 @@
 
     .set-row { margin-bottom: 14px; }
     .set-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
-    .set-row .path-input { display: flex; gap: 8px; }
+    .set-row .path-input { display: flex; gap: 8px; align-items: center; }
+    /* port field: small input with a caption underneath */
+    .port-field { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 0 0 auto; }
+    .port-field input { width: 72px; text-align: center; }
+    .port-field .cap { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
     .set-row input {
       flex: 1;
       background: #010409;
@@ -460,7 +464,7 @@
 <div class="overlay" id="settings-overlay">
   <div class="modal">
     <div class="modal-head">
-      <span>⚙ Settings — service paths</span>
+      <span>⚙ Settings</span>
       <span class="x" onclick="closeSettings()">✕</span>
     </div>
     <div class="modal-body">
@@ -472,7 +476,7 @@
         </div>
       </div>
 
-      <div class="set-section">Service folders</div>
+      <div class="set-section">Service folders &amp; ports</div>
       <div id="set-services"></div>
 
       <div class="set-section">Tools &amp; variables</div>
@@ -914,7 +918,10 @@
                  placeholder="(empty → default folder under \${ROOT})" />
           <button class="pick-btn" onclick="pickFolder('set-path-${svc.id}')">📁</button>
           ${svc.portConfigurable
-            ? `<input type="text" id="set-port-${svc.id}" value="${svc.port || ''}" title="Port" placeholder="port" style="width:72px;flex:0 0 auto;text-align:center" />`
+            ? `<div class="port-field">
+                 <input type="text" id="set-port-${svc.id}" value="${svc.port || ''}" placeholder="port" />
+                 <span class="cap">port</span>
+               </div>`
             : ''}
         </div>
       </div>
